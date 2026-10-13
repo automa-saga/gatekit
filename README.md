@@ -26,6 +26,34 @@ Take only what you need:
 `VersionSource`'s job — so a consumer whose version is set externally can reuse
 the gate core without inheriting the activation model.
 
+## Why not `k8s.io/component-base/featuregate`?
+
+If you are building a Kubernetes component that already imports
+apimachinery/component-base, use it — it is battle-tested and integrates with
+Kubernetes' version skew, storage versions, and `--feature-gates`. gatekit exists
+for everything else:
+
+- **Dependency-light.** The gate core has no external dependencies; component-base
+  pulls in a large part of the Kubernetes module tree and pins you to its release
+  cadence.
+- **Release-independent version.** gatekit keys on a standalone monotonic
+  `protocolVersion` that moves only on a behavior change — not on a Kubernetes
+  release minor, which component-base's emulation version is tied to.
+- **Configurable skew window.** N/N+1 by default, widenable per consumer;
+  component-base fixes roughly three minors.
+- **Pluggable version source.** The active version can be owned externally (e.g. a
+  CRD field another component sets), not only a flag the component owns.
+- **Migrations included.** An opt-in layer for deferred activation, gated one-time
+  migrations, finalize, and reversibility. component-base is gates only; Kubernetes
+  does migration/conversion with separate machinery.
+- **Multi-language, spec-first.** A language-neutral
+  [specification](https://github.com/automa-saga/gatekit-spec) + conformance
+  fixtures so non-Go implementations interoperate; component-base is Go-only and
+  Kubernetes-internal.
+
+gatekit is newer and less battle-tested than component-base — the trade for
+portability, the migration layer, and cross-language conformance.
+
 ## Gate core
 
 ```go
