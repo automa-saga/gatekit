@@ -57,8 +57,12 @@ portability, the migration layer, and cross-language conformance.
 ## Gate core
 
 ```go
+// Declare each feature once, as a typed constant — a single source of truth
+// referenced by both the registry and the call sites (no string drift).
+const SplitCatalog gatekit.Feature = "SplitCatalog"
+
 specs := gatekit.Registry{
-    "SplitCatalog": {
+    SplitCatalog: {
         {Version: 5, Default: false, PreRelease: gatekit.Beta},
         {Version: 6, Default: true,  PreRelease: gatekit.GA},
     },
@@ -69,7 +73,7 @@ if err != nil {
     // handle configuration error
 }
 
-if gate.Enabled("SplitCatalog") {
+if gate.Enabled(SplitCatalog) {
     loadSplitCatalog() // new path
 } else {
     loadLegacyCatalog() // old path
