@@ -75,6 +75,22 @@ _ = runner.RunNow(ctx, plan)          // at install
 _ = runner.Finalize(ctx, plan, store) // during a controlled window
 ```
 
+## Specification & conformance
+
+gatekit's behavior is defined by a language-neutral specification in
+[automa-saga/gatekit-spec](https://github.com/automa-saga/gatekit-spec), vendored
+here as a git submodule at [`docs/spec`](docs/spec). This Go package is the **first
+conformant implementation**; where the code and the spec disagree, the spec wins.
+
+The conformance runner (`conformance_test.go`) executes the spec's shared fixtures
+against this implementation. After cloning, fetch the submodule:
+
+```bash
+git submodule update --init
+```
+
+The resolution tests skip automatically if the submodule is not checked out.
+
 ## Development
 
 ```bash
