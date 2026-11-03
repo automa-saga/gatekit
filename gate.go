@@ -26,15 +26,24 @@ func (s StaticVersion) Current() int { return int(s) }
 type FeatureGate struct {
 	specs  Registry
 	source VersionSource
+	window int
 }
 
 // New validates the registry and returns a FeatureGate. The registry is copied
-// and each feature's specs are sorted by Version ascending. It returns an error
-// if source is nil, a feature has no specs, or a feature has a negative or
-// duplicate version.
-func New(specs Registry, source VersionSource) (*FeatureGate, error) {
+// and each feature's specs are sorted by Version ascending. Options (see Option)
+// are applied over the defaults, notably WithSupportWindow. It returns an error
+// if source is nil, an option is invalid, a feature has no specs, or a feature
+// has a negative or duplicate version.
+func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, error) {
 	if source == nil {
 		return nil, fmt.Errorf("gatekit: VersionSource must not be nil")
+	}
+
+	cfg := defaultConfig()
+	for _, opt := range opts {
+		if err := opt(&cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	normalized := make(Registry, len(specs))
@@ -55,7 +64,7 @@ func New(specs Registry, source VersionSource) (*FeatureGate, error) {
 		normalized[f] = cp
 	}
 
-	return &FeatureGate{specs: normalized, source: source}, nil
+	return &FeatureGate{specs: normalized, source: source, window: cfg.window}, nil
 }
 
 // Enabled reports whether feature f is on at the current protocol version: the

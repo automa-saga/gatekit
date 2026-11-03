@@ -74,8 +74,66 @@ func TestConformanceResolution(t *testing.T) {
 	}
 }
 
-// TestConformanceInvariant is reserved until the EffectiveVersion run invariant
-// lands (automa-saga/gatekit#9); the fixtures already exist in the spec.
+type invariantFixture struct {
+	Name         string `json:"name"`
+	Max          int    `json:"max"`
+	Window       int    `json:"window"`
+	FirstVersion int    `json:"firstVersion"`
+	Cases        []struct {
+		Active int  `json:"active"`
+		Valid  bool `json:"valid"`
+	} `json:"cases"`
+}
+
+// TestConformanceInvariant runs the language-neutral run-invariant fixtures from
+// gatekit-spec (protocol-spec §3) against this implementation. Each fixture gives
+// max, the window W, and firstVersion; the expected min is
+// max(firstVersion, max-W). The check is exercised end-to-end through New +
+// Check by building a registry whose MaxVersion and firstVersion match the
+// fixture. It skips when the spec submodule is not checked out.
 func TestConformanceInvariant(t *testing.T) {
-	t.Skip("invariant conformance pending EffectiveVersion.Check (#9)")
+	if _, err := os.Stat(conformanceDir); os.IsNotExist(err) {
+		t.Skip("gatekit-spec submodule not checked out; run: git submodule update --init")
+	}
+
+	files, err := filepath.Glob(filepath.Join(conformanceDir, "invariant", "*.json"))
+	if err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+	if len(files) == 0 {
+		t.Skip("no invariant fixtures found")
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		var fx invariantFixture
+		if err := json.Unmarshal(data, &fx); err != nil {
+			t.Fatalf("parse %s: %v", file, err)
+		}
+
+		reg := Registry{Feature("f"): invariantSpecs(fx.FirstVersion, fx.Max)}
+		for _, c := range fx.Cases {
+			gate, err := New(reg, StaticVersion(c.Active), WithSupportWindow(fx.Window))
+			if err != nil {
+				t.Fatalf("%s: New() error: %v", fx.Name, err)
+			}
+			valid := gate.Check() == nil
+			if valid != c.Valid {
+				t.Errorf("%s: Check(active=%d) valid = %v, want %v (max=%d window=%d first=%d)",
+					fx.Name, c.Active, valid, c.Valid, fx.Max, fx.Window, fx.FirstVersion)
+			}
+		}
+	}
+}
+
+// invariantSpecs builds a minimal VersionedSpecs whose lowest version is first and
+// whose highest is max, so the gate's MaxVersion and firstVersion match a fixture.
+func invariantSpecs(first, max int) VersionedSpecs {
+	if first == max {
+		return VersionedSpecs{{Version: first}}
+	}
+	return VersionedSpecs{{Version: first}, {Version: max}}
 }
