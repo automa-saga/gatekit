@@ -24,9 +24,11 @@ func (s StaticVersion) Current() int { return int(s) }
 // concurrent use: the registry is immutable after New and the VersionSource is
 // read on each call.
 type FeatureGate struct {
-	specs  Registry
-	source VersionSource
-	window int
+	specs      Registry
+	source     VersionSource
+	window     int
+	overrides  map[Feature]bool
+	allowAlpha bool
 }
 
 // New validates the registry and returns a FeatureGate. The registry is copied
@@ -64,25 +66,50 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 		normalized[f] = cp
 	}
 
-	return &FeatureGate{specs: normalized, source: source, window: cfg.window}, nil
+	for f := range cfg.overrides {
+		if _, ok := normalized[f]; !ok {
+			return nil, fmt.Errorf("gatekit: override for unknown feature %q", f)
+		}
+	}
+
+	return &FeatureGate{
+		specs:      normalized,
+		source:     source,
+		window:     cfg.window,
+		overrides:  cfg.overrides,
+		allowAlpha: cfg.allowAlpha,
+	}, nil
 }
 
-// Enabled reports whether feature f is on at the current protocol version: the
-// Default of the latest spec whose Version is <= the current version. An unknown
-// feature, or one whose first spec is not yet reached, is off.
+// Enabled reports whether feature f is on at the current protocol version. See
+// resolve for the precedence (override > version-resolved default, subject to the
+// ALPHA opt-in > off).
 func (g *FeatureGate) Enabled(f Feature) bool {
-	spec, ok := g.specAt(f, g.source.Current())
-	if !ok {
-		return false
-	}
-	return spec.Default
+	return g.resolve(f, g.source.Current())
 }
 
 // EnabledAt is Enabled resolved against an explicit version rather than the
 // VersionSource. Useful for planning and tests.
 func (g *FeatureGate) EnabledAt(f Feature, version int) bool {
-	spec, ok := g.specAt(f, version)
+	return g.resolve(f, version)
+}
+
+// resolve computes the effective state of feature f at version v, applying the
+// precedence from core-spec §5, highest first:
+//
+//  1. an explicit override (WithOverrides) — wins regardless of the version,
+//  2. the version-resolved default of the effective spec, except an ALPHA spec
+//     resolves off unless the gate is opted in (WithExperimental),
+//  3. off (unknown feature, or first spec not yet reached).
+func (g *FeatureGate) resolve(f Feature, v int) bool {
+	if ov, ok := g.overrides[f]; ok {
+		return ov
+	}
+	spec, ok := g.specAt(f, v)
 	if !ok {
+		return false
+	}
+	if spec.PreRelease == Alpha && !g.allowAlpha {
 		return false
 	}
 	return spec.Default
