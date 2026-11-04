@@ -10,11 +10,16 @@ const (
 func testRegistry() Registry {
 	return Registry{
 		featureA: {
-			{Version: 4, Default: false, PreRelease: Beta},
-			{Version: 6, Default: true, PreRelease: GA},
+			Description: "feature A",
+			Specs: VersionedSpecs{
+				{Version: 4, Default: false, PreRelease: Beta},
+				{Version: 6, Default: true, PreRelease: GA},
+			},
 		},
 		featureB: {
-			{Version: 5, Default: false, PreRelease: Alpha},
+			Specs: VersionedSpecs{
+				{Version: 5, Default: false, PreRelease: Alpha},
+			},
 		},
 	}
 }
@@ -29,8 +34,8 @@ func TestNewValidation(t *testing.T) {
 		{name: "ok", specs: testRegistry(), source: StaticVersion(5)},
 		{name: "nil source", specs: testRegistry(), source: nil, wantErr: true},
 		{name: "empty specs", specs: Registry{featureA: {}}, source: StaticVersion(0), wantErr: true},
-		{name: "negative version", specs: Registry{featureA: {{Version: -1}}}, source: StaticVersion(0), wantErr: true},
-		{name: "duplicate version", specs: Registry{featureA: {{Version: 3}, {Version: 3}}}, source: StaticVersion(0), wantErr: true},
+		{name: "negative version", specs: Registry{featureA: {Specs: VersionedSpecs{{Version: -1}}}}, source: StaticVersion(0), wantErr: true},
+		{name: "duplicate version", specs: Registry{featureA: {Specs: VersionedSpecs{{Version: 3}, {Version: 3}}}}, source: StaticVersion(0), wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

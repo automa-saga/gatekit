@@ -24,7 +24,7 @@ func TestEffectiveVersion(t *testing.T) {
 		},
 		{
 			name:    "wide window clamps to firstVersion",
-			specs:   Registry{featureA: {{Version: 0}, {Version: 6}}},
+			specs:   Registry{featureA: {Specs: VersionedSpecs{{Version: 0}, {Version: 6}}}},
 			window:  5,
 			active:  3,
 			wantMin: 1, // max(0, 6-5)

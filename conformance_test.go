@@ -16,9 +16,14 @@ type specJSON struct {
 	PreRelease string `json:"preRelease"`
 }
 
+type featureDefJSON struct {
+	Description string     `json:"description"`
+	Specs       []specJSON `json:"specs"`
+}
+
 type resolutionFixture struct {
-	Name     string                `json:"name"`
-	Registry map[string][]specJSON `json:"registry"`
+	Name     string                    `json:"name"`
+	Registry map[string]featureDefJSON `json:"registry"`
 	Cases    []struct {
 		Active int `json:"active"`
 		// AllowAlpha opts the gate in to ALPHA features gate-wide (optional,
@@ -57,12 +62,12 @@ func TestConformanceResolution(t *testing.T) {
 		}
 
 		reg := Registry{}
-		for f, specs := range fx.Registry {
-			vs := make(VersionedSpecs, 0, len(specs))
-			for _, s := range specs {
+		for f, def := range fx.Registry {
+			vs := make(VersionedSpecs, 0, len(def.Specs))
+			for _, s := range def.Specs {
 				vs = append(vs, FeatureSpec{Version: s.Version, Default: s.Default, PreRelease: PreRelease(s.PreRelease)})
 			}
-			reg[Feature(f)] = vs
+			reg[Feature(f)] = FeatureDef{Description: def.Description, Specs: vs}
 		}
 
 		for _, c := range fx.Cases {
@@ -132,7 +137,7 @@ func TestConformanceInvariant(t *testing.T) {
 			t.Fatalf("parse %s: %v", file, err)
 		}
 
-		reg := Registry{Feature("f"): invariantSpecs(fx.FirstVersion, fx.Max)}
+		reg := Registry{Feature("f"): {Specs: invariantSpecs(fx.FirstVersion, fx.Max)}}
 		for _, c := range fx.Cases {
 			gate, err := New(reg, StaticVersion(c.Active), WithSupportWindow(fx.Window))
 			if err != nil {

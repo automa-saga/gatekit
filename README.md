@@ -16,8 +16,9 @@ flag service. It is the standalone analogue of Kubernetes'
 Take only what you need:
 
 - **Gate core** (`github.com/automa-saga/gatekit`) — a `Feature` registry of
-  `VersionedSpecs` and a `FeatureGate` that resolves each feature against a
-  pluggable `VersionSource`. Dependency-light; usable by any Go project.
+  `FeatureDef`s (an optional `Description` plus `VersionedSpecs`) and a
+  `FeatureGate` that resolves each feature against a pluggable `VersionSource`.
+  Dependency-light; usable by any Go project.
 - **Migration / activation** (`github.com/automa-saga/gatekit/migration`) —
   deferred activation, gated one-time migrations, and a `finalize` step for
   rolling upgrades. Opt-in.
@@ -63,8 +64,11 @@ const SplitCatalog gatekit.Feature = "SplitCatalog"
 
 specs := gatekit.Registry{
     SplitCatalog: {
-        {Version: 5, Default: false, PreRelease: gatekit.Beta},
-        {Version: 6, Default: true,  PreRelease: gatekit.GA},
+        Description: "Load the per-minor split catalog instead of the single file",
+        Specs: gatekit.VersionedSpecs{
+            {Version: 5, Default: false, PreRelease: gatekit.Beta},
+            {Version: 6, Default: true,  PreRelease: gatekit.GA},
+        },
     },
 }
 
@@ -84,6 +88,11 @@ A feature's state is the `Default` of the latest spec whose `Version` is `<=` th
 current version. Unknown or not-yet-reached features are off. `gate.MaxVersion()`
 derives the newest protocol version in the registry, so consumers never
 hand-maintain it.
+
+Each feature may carry an optional, free-form `Description`. It is informational —
+it never affects resolution or the run invariant — and surfaces in operator-facing
+output: retrieve one with `gate.Description(feature)`, or list them all with
+`gate.Report()` (a dry-run of every feature's state, maturity, and description).
 
 Wire `VersionSource` to whatever is authoritative for you — a static value, a
 tool-decided active version (see the `migration` package), or a value set
