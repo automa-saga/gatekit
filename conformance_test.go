@@ -20,8 +20,13 @@ type resolutionFixture struct {
 	Name     string                `json:"name"`
 	Registry map[string][]specJSON `json:"registry"`
 	Cases    []struct {
-		Active  int             `json:"active"`
-		Enabled map[string]bool `json:"enabled"`
+		Active int `json:"active"`
+		// AllowAlpha opts the gate in to ALPHA features gate-wide (optional,
+		// default false).
+		AllowAlpha bool `json:"allowAlpha"`
+		// Overrides forces features on/off regardless of version (optional).
+		Overrides map[string]bool `json:"overrides"`
+		Enabled   map[string]bool `json:"enabled"`
 	} `json:"cases"`
 }
 
@@ -59,12 +64,25 @@ func TestConformanceResolution(t *testing.T) {
 			}
 			reg[Feature(f)] = vs
 		}
-		gate, err := New(reg, StaticVersion(0))
-		if err != nil {
-			t.Fatalf("%s: New() error: %v", fx.Name, err)
-		}
 
 		for _, c := range fx.Cases {
+			// Overrides and the alpha opt-in are construction-time, so the gate is
+			// built per case.
+			var opts []Option
+			if c.AllowAlpha {
+				opts = append(opts, WithExperimental(true))
+			}
+			if len(c.Overrides) > 0 {
+				ov := make(map[Feature]bool, len(c.Overrides))
+				for k, v := range c.Overrides {
+					ov[Feature(k)] = v
+				}
+				opts = append(opts, WithOverrides(ov))
+			}
+			gate, err := New(reg, StaticVersion(0), opts...)
+			if err != nil {
+				t.Fatalf("%s: New() error: %v", fx.Name, err)
+			}
 			for feature, want := range c.Enabled {
 				if got := gate.EnabledAt(Feature(feature), c.Active); got != want {
 					t.Errorf("%s: EnabledAt(%q, %d) = %v, want %v", fx.Name, feature, c.Active, got, want)

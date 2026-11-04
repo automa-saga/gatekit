@@ -12,6 +12,11 @@ type config struct {
 	// window is the support window W: the number of prior protocol versions the
 	// gate also supports. Defaults to 1 (strict N/N+1).
 	window int
+	// overrides forces specific features on or off regardless of the
+	// version-resolved default (core-spec §5). Nil until an override is set.
+	overrides map[Feature]bool
+	// allowAlpha opts the gate in to ALPHA features gate-wide (core-spec §4).
+	allowAlpha bool
 }
 
 // defaultConfig returns the baseline settings New applies options over.
@@ -31,6 +36,36 @@ func WithSupportWindow(w int) Option {
 			return fmt.Errorf("gatekit: support window must be non-negative, got %d", w)
 		}
 		c.window = w
+		return nil
+	}
+}
+
+// WithOverrides forces specific features on or off regardless of the
+// version-resolved default — the highest-precedence input to resolution
+// (core-spec §5), mirroring Kubernetes --feature-gates=Foo=true. An override
+// takes effect regardless of the current protocol version, including before a
+// feature's first spec is reached. An override MAY only name a registered
+// feature; New rejects an override for an unknown feature (a mistyped identifier
+// would otherwise silently force nothing). Repeated calls merge, last value wins.
+func WithOverrides(overrides map[Feature]bool) Option {
+	return func(c *config) error {
+		if c.overrides == nil {
+			c.overrides = make(map[Feature]bool, len(overrides))
+		}
+		for f, v := range overrides {
+			c.overrides[f] = v
+		}
+		return nil
+	}
+}
+
+// WithExperimental opts the gate in to ALPHA features gate-wide: an ALPHA feature
+// then follows its declared default instead of being forced off (core-spec §4),
+// the equivalent of an --experimental switch. A per-feature override (WithOverrides)
+// still takes precedence over this. BETA/GA features are unaffected.
+func WithExperimental(allow bool) Option {
+	return func(c *config) error {
+		c.allowAlpha = allow
 		return nil
 	}
 }
