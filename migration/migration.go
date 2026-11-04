@@ -17,17 +17,48 @@ package migration
 
 import "context"
 
-// Scope declares when a migration may run relative to activation.
+// Scope is a consumer-defined classification of a migration. gatekit does not fix
+// the set of scopes; a consumer defines as many as it needs and maps each to a
+// RunPolicy via a ScopePolicy (see Planner.WithScopePolicy). HostLocal and Interop
+// are provided only as the keys of the built-in DefaultScopePolicy, not as a closed
+// enum.
 type Scope string
 
 const (
-	// HostLocal migrations affect only the host they run on, so they may run as
-	// soon as their protocol version activates (e.g. at install).
+	// HostLocal migrations affect only the host they run on. In the built-in
+	// default policy they run as soon as their protocol version activates (e.g. at
+	// install).
 	HostLocal Scope = "host-local"
-	// Interop migrations affect cross-host or network agreement, so they are held
-	// until a coordinated finalize to avoid a mixed-protocol fleet.
+	// Interop migrations affect cross-host or network agreement. In the built-in
+	// default policy they are held until a coordinated finalize, to avoid a
+	// mixed-protocol fleet.
 	Interop Scope = "interop"
 )
+
+// RunPolicy is the timing a migration step is eligible for, resolved from its
+// Scope by a ScopePolicy.
+type RunPolicy string
+
+const (
+	// PolicyRunNow marks a step eligible to run at install / immediate activation.
+	PolicyRunNow RunPolicy = "run-now"
+	// PolicyHeld marks a step deferred until a deliberate finalize. It is also the
+	// conservative fallback for a scope the policy does not map, since a held step
+	// never fires automatically at install.
+	PolicyHeld RunPolicy = "held"
+)
+
+// ScopePolicy maps a Scope to the RunPolicy that decides its timing. A consumer
+// supplies one to classify its own scopes; DefaultScopePolicy is used when none is
+// given.
+type ScopePolicy map[Scope]RunPolicy
+
+// DefaultScopePolicy is gatekit's built-in classifier, preserving the original
+// behavior: host-local runs now, interop is held. It is applied when a consumer
+// supplies no policy, and underlies any consumer policy (which may override it).
+func DefaultScopePolicy() ScopePolicy {
+	return ScopePolicy{HostLocal: PolicyRunNow, Interop: PolicyHeld}
+}
 
 // Migration is a one-time, idempotent transformation tied to a protocol version.
 type Migration interface {

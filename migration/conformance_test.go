@@ -13,8 +13,11 @@ import (
 const planningDir = "../docs/spec/conformance/planning"
 
 type planningFixture struct {
-	Name       string `json:"name"`
-	Migrations []struct {
+	Name string `json:"name"`
+	// ScopePolicy is the optional consumer scope→run-policy classifier; omitted
+	// means the built-in default mapping.
+	ScopePolicy map[string]string `json:"scopePolicy"`
+	Migrations  []struct {
 		ID      string `json:"id"`
 		Version int    `json:"version"`
 		Scope   string `json:"scope"`
@@ -54,7 +57,15 @@ func TestConformancePlanning(t *testing.T) {
 		for _, m := range fx.Migrations {
 			migs = append(migs, &fakeMigration{id: m.ID, version: m.Version, scope: Scope(m.Scope), applies: m.Applies})
 		}
-		plan, err := NewPlanner(migs...).Plan(context.Background(), fx.From, fx.To)
+		planner := NewPlanner(migs...)
+		if len(fx.ScopePolicy) > 0 {
+			sp := ScopePolicy{}
+			for s, pol := range fx.ScopePolicy {
+				sp[Scope(s)] = RunPolicy(pol)
+			}
+			planner = planner.WithScopePolicy(sp)
+		}
+		plan, err := planner.Plan(context.Background(), fx.From, fx.To)
 		if err != nil {
 			t.Fatalf("%s: Plan() error: %v", fx.Name, err)
 		}
