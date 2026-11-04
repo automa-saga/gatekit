@@ -1,3 +1,3 @@
 module github.com/automa-saga/gatekit
 
-go 1.26.9
+go 1.27.3
