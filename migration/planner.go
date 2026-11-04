@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"fmt"
 	"sort"
 )
 
@@ -23,13 +24,16 @@ type Plan struct {
 	Steps []Step
 }
 
-// Planner selects and orders the migrations that apply between two versions.
+// Planner selects and orders the migrations that apply between two versions, and
+// resolves each migration's Scope to a RunPolicy through its ScopePolicy.
 type Planner struct {
 	migrations []Migration
+	policy     ScopePolicy
 }
 
 // NewPlanner returns a Planner over the given migrations, ordered by Version then
-// ID for deterministic plans.
+// ID for deterministic plans. It uses DefaultScopePolicy until WithScopePolicy
+// supplies a consumer classifier.
 func NewPlanner(migrations ...Migration) *Planner {
 	cp := append([]Migration(nil), migrations...)
 	sort.Slice(cp, func(i, j int) bool {
@@ -38,7 +42,29 @@ func NewPlanner(migrations ...Migration) *Planner {
 		}
 		return cp[i].ID() < cp[j].ID()
 	})
-	return &Planner{migrations: cp}
+	return &Planner{migrations: cp, policy: DefaultScopePolicy()}
+}
+
+// WithScopePolicy registers a consumer scope→policy classifier and returns the
+// Planner for chaining. The given entries are merged over the built-in default, so
+// consumer scopes are added and host-local/interop keep their default policy unless
+// overridden. A scope mapped by neither resolves to PolicyHeld.
+func (p *Planner) WithScopePolicy(policy ScopePolicy) *Planner {
+	merged := DefaultScopePolicy()
+	for s, pol := range policy {
+		merged[s] = pol
+	}
+	p.policy = merged
+	return p
+}
+
+// policyFor resolves a scope to its RunPolicy, defaulting to PolicyHeld for a scope
+// the policy does not map (the conservative choice: never auto-fire at install).
+func (p *Planner) policyFor(s Scope) RunPolicy {
+	if pol, ok := p.policy[s]; ok {
+		return pol
+	}
+	return PolicyHeld
 }
 
 // Plan returns the migrations whose Version is in the half-open range (from, to]
@@ -60,11 +86,13 @@ func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
 			continue
 		}
 		step := Step{Migration: m}
-		switch m.Scope() {
-		case HostLocal:
-			step.RunNow, step.Reason = true, "host-local: runs on activation"
+		switch p.policyFor(m.Scope()) {
+		case PolicyRunNow:
+			step.RunNow = true
+			step.Reason = fmt.Sprintf("%s: runs now on activation", m.Scope())
 		default:
-			step.RunNow, step.Reason = false, "interop: held for finalize"
+			step.RunNow = false
+			step.Reason = fmt.Sprintf("%s: held for finalize", m.Scope())
 		}
 		plan.Steps = append(plan.Steps, step)
 	}
