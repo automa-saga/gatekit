@@ -42,6 +42,7 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 	}
 
 	cfg := defaultConfig()
+	cfg.registry = specs
 	for _, opt := range opts {
 		if err := opt(&cfg); err != nil {
 			return nil, err

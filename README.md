@@ -105,6 +105,36 @@ Wire `VersionSource` to whatever is authoritative for you — a static value, a
 tool-decided active version (see the `migration` package), or a value set
 externally (for example a CRD field).
 
+### Environment-variable overrides
+
+`WithEnvOverrides` lets operators force features on or off from the environment
+without each consumer reimplementing the scan and the name conversion. The
+**prefix stays yours** — gatekit is general-purpose and bakes in no
+consumer-specific prefix — while gatekit owns the **suffix convention**, so every
+consumer, and every language port, derives the same variable name for a feature.
+
+The suffix is the `Feature` identifier converted from CamelCase to
+`UPPER_SNAKE_CASE`: `EnvVarName(SplitCatalog, "MYAPP_ENABLE_")` yields
+`MYAPP_ENABLE_SPLIT_CATALOG`.
+
+```go
+gate, err := gatekit.New(specs, source,
+    gatekit.WithEnvOverrides("MYAPP_ENABLE_"),
+)
+```
+
+With that option, `MYAPP_ENABLE_SPLIT_CATALOG=true` (or `false`, or any value
+`strconv.ParseBool` accepts) applies as a per-feature **override** — it beats
+version/maturity resolution exactly like `WithOverrides`, and forcing a feature on
+before its `ActiveFrom` is allowed (the override intentionally bypasses the version
+gate).
+
+`WithEnvOverrides` **fails loudly** rather than silently ignore a mistyped opt-in:
+`New` returns an error, naming the offending variable, if a `<prefix>*` variable
+does not map to any registered feature or its value is not a parseable bool. Option
+order is last-writer, so an explicit `WithOverrides` passed after `WithEnvOverrides`
+still wins per feature.
+
 ## Migration / activation
 
 The `migration` package ties one-time, idempotent migrations to activation
