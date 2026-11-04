@@ -23,10 +23,10 @@ func TestDescriptionGetter(t *testing.T) {
 
 func TestDescriptionDoesNotAffectResolution(t *testing.T) {
 	withDesc := Registry{
-		featureA: {Description: "has a description", Specs: VersionedSpecs{{Version: 4, Default: true, Maturity: GA}}},
+		featureA: {Description: "has a description", Specs: VersionedSpecs{{Since: 4, Default: true, Maturity: GA}}},
 	}
 	noDesc := Registry{
-		featureA: {Specs: VersionedSpecs{{Version: 4, Default: true, Maturity: GA}}},
+		featureA: {Specs: VersionedSpecs{{Since: 4, Default: true, Maturity: GA}}},
 	}
 	g1, _ := New(withDesc, StaticVersion(5))
 	g2, _ := New(noDesc, StaticVersion(5))

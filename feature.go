@@ -11,13 +11,13 @@ type Feature string
 // Example lifecycle for a feature introduced at protocol 5 and promoted at 6:
 //
 //	VersionedSpecs{
-//	    {Version: 5, Default: false, Maturity: Beta},
-//	    {Version: 6, Default: true,  Maturity: GA},
+//	    {Since: 5, Default: false, Maturity: Beta},
+//	    {Since: 6, Default: true,  Maturity: GA},
 //	}
 type FeatureSpec struct {
-	// Version is the protocol version at which this spec takes effect (>= 0).
-	Version int
-	// Default is whether the feature is on at or after Version, unless a later
+	// Since is the protocol version at which this spec takes effect.
+	Since Protocol
+	// Default is whether the feature is on at or after Since, unless a later
 	// spec overrides it.
 	Default bool
 	// Maturity is the feature's lifecycle stage at this version.
@@ -35,8 +35,8 @@ type VersionedSpecs []FeatureSpec
 //	    SplitCatalog: {
 //	        Description: "Load the per-minor split catalog instead of the single file",
 //	        Specs: VersionedSpecs{
-//	            {Version: 5, Default: false, Maturity: Beta},
-//	            {Version: 6, Default: true,  Maturity: GA},
+//	            {Since: 5, Default: false, Maturity: Beta},
+//	            {Since: 6, Default: true,  Maturity: GA},
 //	        },
 //	    },
 //	}

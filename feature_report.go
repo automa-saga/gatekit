@@ -21,7 +21,7 @@ type FeatureInfo struct {
 // steps are reported separately (package gatekit/migration).
 type FeatureReport struct {
 	// Version is the protocol version the report was resolved against.
-	Version  int
+	Version  Protocol
 	Features []FeatureInfo
 }
 
@@ -32,8 +32,8 @@ func (g *FeatureGate) Report() FeatureReport {
 }
 
 // ReportAt lists every feature with its description and state resolved against an
-// explicit version, sorted by feature identifier.
-func (g *FeatureGate) ReportAt(version int) FeatureReport {
+// explicit protocol version, sorted by feature identifier.
+func (g *FeatureGate) ReportAt(version Protocol) FeatureReport {
 	rep := FeatureReport{Version: version}
 	for _, f := range g.Features() {
 		info := FeatureInfo{

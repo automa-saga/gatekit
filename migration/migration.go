@@ -80,9 +80,10 @@ type Migration interface {
 	Rollback(ctx context.Context) error
 }
 
-// Store persists and reports the active protocol version. Its Current method
-// satisfies gatekit.VersionSource, so the same value drives both feature-gate
-// resolution and migration planning.
+// Store persists and reports the active protocol version. A consumer wires its
+// active value into a gatekit.VersionSource (converting the int to gatekit.Protocol,
+// e.g. gatekit.StaticVersion(store.Current())), so the same value drives both
+// feature-gate resolution and migration planning.
 type Store interface {
 	// Current returns the active protocol version.
 	Current() int
