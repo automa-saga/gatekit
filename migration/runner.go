@@ -5,21 +5,45 @@ import (
 	"fmt"
 )
 
-// Runner executes migration steps in order, rolling back the steps it completed
-// if a later one fails.
-//
-// This is the dependency-light scaffold. Integrating automa-saga/automa for
-// richer ordered execution, reporting, and rollback semantics (as in
-// solo-weaver's internal/migration) is tracked as a follow-up.
-type Runner struct{}
+// Runner executes a migration Plan. gatekit ships StdRunner, a dependency-free
+// sequential implementation; the separate module github.com/automa-saga/gatekit-automa
+// provides a durable, crash-resumable implementation backed by automa. Both satisfy
+// this interface, so a consumer swaps the execution engine without changing call
+// sites — and the automa dependency never enters a plain gatekit consumer's module
+// graph.
+type Runner interface {
+	// RunNow executes the plan's run-now (host-local) steps in plan order. On the
+	// first failure it rolls back the already-executed steps in reverse order
+	// (best-effort) and returns the error. Held steps are ignored here; they run at
+	// Finalize. It MUST NOT advance the active version.
+	RunNow(ctx context.Context, plan Plan) error
+	// Finalize runs the plan's held (interop) steps in plan order, then advances the
+	// active version to plan.To via the Store. On failure it rolls back the executed
+	// held steps and leaves the active version unchanged; the version advances only
+	// when every held step succeeds (the one-way line).
+	Finalize(ctx context.Context, plan Plan, store Store) error
+}
 
-// NewRunner returns a Runner.
-func NewRunner() *Runner { return &Runner{} }
+// StdRunner is the dependency-free, sequential Runner: it executes steps in plan
+// order and compensates completed steps in reverse on failure. It is the default
+// for consumers that do not need durability; for crash-safe, resumable execution
+// use the automa-backed Runner in github.com/automa-saga/gatekit-automa.
+type StdRunner struct{}
+
+// NewStdRunner returns a StdRunner.
+func NewStdRunner() *StdRunner { return &StdRunner{} }
+
+// NewRunner returns the default (dependency-free) Runner. It is retained as a
+// convenience alias for NewStdRunner.
+func NewRunner() *StdRunner { return NewStdRunner() }
+
+// StdRunner satisfies Runner.
+var _ Runner = (*StdRunner)(nil)
 
 // RunNow executes the plan's run-now steps in order. On the first failure it rolls
 // back the already-executed steps in reverse (best-effort) and returns the error.
 // Held (interop) steps are ignored here; they run at finalize.
-func (r *Runner) RunNow(ctx context.Context, plan Plan) error {
+func (r *StdRunner) RunNow(ctx context.Context, plan Plan) error {
 	var done []Migration
 	for _, s := range plan.Steps {
 		if !s.RunNow {
@@ -38,7 +62,7 @@ func (r *Runner) RunNow(ctx context.Context, plan Plan) error {
 // the new active version via the Store. It runs the held steps in order, rolling
 // back on failure without advancing the version. On success the version is
 // advanced — the one-way line.
-func (r *Runner) Finalize(ctx context.Context, plan Plan, store Store) error {
+func (r *StdRunner) Finalize(ctx context.Context, plan Plan, store Store) error {
 	var done []Migration
 	for _, s := range plan.Steps {
 		if s.RunNow {
@@ -57,7 +81,7 @@ func (r *Runner) Finalize(ctx context.Context, plan Plan, store Store) error {
 	return nil
 }
 
-func (r *Runner) rollback(ctx context.Context, done []Migration) {
+func (r *StdRunner) rollback(ctx context.Context, done []Migration) {
 	for i := len(done) - 1; i >= 0; i-- {
 		_ = done[i].Rollback(ctx)
 	}
