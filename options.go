@@ -9,6 +9,10 @@ type Option func(*config) error
 // config holds the resolved construction settings before a FeatureGate is built.
 // It carries defaults so New can apply options over a known baseline.
 type config struct {
+	// registry is the (unnormalized) feature registry New was called with. New
+	// populates it before applying options so an Option that needs to validate
+	// against the known features — notably WithEnvOverrides — can read it.
+	registry Registry
 	// window is the support window W: the number of prior activation versions the
 	// gate also supports. Defaults to 1 (strict N/N+1).
 	window int
