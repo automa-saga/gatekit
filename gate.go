@@ -109,7 +109,7 @@ func (g *FeatureGate) resolve(f Feature, v int) bool {
 	if !ok {
 		return false
 	}
-	if spec.PreRelease == Alpha && !g.allowAlpha {
+	if spec.Maturity == Alpha && !g.allowAlpha {
 		return false
 	}
 	return spec.Default

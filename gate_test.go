@@ -12,13 +12,13 @@ func testRegistry() Registry {
 		featureA: {
 			Description: "feature A",
 			Specs: VersionedSpecs{
-				{Version: 4, Default: false, PreRelease: Beta},
-				{Version: 6, Default: true, PreRelease: GA},
+				{Version: 4, Default: false, Maturity: Beta},
+				{Version: 6, Default: true, Maturity: GA},
 			},
 		},
 		featureB: {
 			Specs: VersionedSpecs{
-				{Version: 5, Default: false, PreRelease: Alpha},
+				{Version: 5, Default: false, Maturity: Alpha},
 			},
 		},
 	}

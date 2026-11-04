@@ -66,8 +66,8 @@ specs := gatekit.Registry{
     SplitCatalog: {
         Description: "Load the per-minor split catalog instead of the single file",
         Specs: gatekit.VersionedSpecs{
-            {Version: 5, Default: false, PreRelease: gatekit.Beta},
-            {Version: 6, Default: true,  PreRelease: gatekit.GA},
+            {Version: 5, Default: false, Maturity: gatekit.Beta},
+            {Version: 6, Default: true,  Maturity: gatekit.GA},
         },
     },
 }

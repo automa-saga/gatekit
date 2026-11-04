@@ -10,10 +10,10 @@ import (
 type FeatureInfo struct {
 	Feature     Feature
 	Description string
-	// PreRelease is the maturity of the effective spec at the reported version, or
-	// empty if the feature's first spec is not yet reached.
-	PreRelease PreRelease
-	Enabled    bool
+	// Maturity is the lifecycle stage of the effective spec at the reported version,
+	// or empty if the feature's first spec is not yet reached.
+	Maturity Maturity
+	Enabled  bool
 }
 
 // FeatureReport is a listing of features with their descriptions and resolved state
@@ -42,7 +42,7 @@ func (g *FeatureGate) ReportAt(version int) FeatureReport {
 			Enabled:     g.resolve(f, version),
 		}
 		if spec, ok := g.specAt(f, version); ok {
-			info.PreRelease = spec.PreRelease
+			info.Maturity = spec.Maturity
 		}
 		rep.Features = append(rep.Features, info)
 	}
@@ -63,7 +63,7 @@ func (r FeatureReport) String() string {
 		if f.Enabled {
 			state = "on"
 		}
-		maturity := string(f.PreRelease)
+		maturity := string(f.Maturity)
 		if maturity == "" {
 			maturity = "-"
 		}

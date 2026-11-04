@@ -11,9 +11,9 @@ import (
 const conformanceDir = "docs/spec/conformance"
 
 type specJSON struct {
-	Version    int    `json:"version"`
-	Default    bool   `json:"default"`
-	PreRelease string `json:"preRelease"`
+	Version  int    `json:"version"`
+	Default  bool   `json:"default"`
+	Maturity string `json:"maturity"`
 }
 
 type featureDefJSON struct {
@@ -65,7 +65,7 @@ func TestConformanceResolution(t *testing.T) {
 		for f, def := range fx.Registry {
 			vs := make(VersionedSpecs, 0, len(def.Specs))
 			for _, s := range def.Specs {
-				vs = append(vs, FeatureSpec{Version: s.Version, Default: s.Default, PreRelease: PreRelease(s.PreRelease)})
+				vs = append(vs, FeatureSpec{Version: s.Version, Default: s.Default, Maturity: Maturity(s.Maturity)})
 			}
 			reg[Feature(f)] = FeatureDef{Description: def.Description, Specs: vs}
 		}
