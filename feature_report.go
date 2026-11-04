@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// FeatureInfo is the operator-facing view of one feature at a protocol version: its
+// FeatureInfo is the operator-facing view of one feature at an activation version: its
 // description, maturity, and resolved state. It is what a listing / dry-run shows.
 type FeatureInfo struct {
 	Feature     Feature
@@ -20,8 +20,8 @@ type FeatureInfo struct {
 // — the gate's --plan / dry-run view for operators and generated docs. Migration
 // steps are reported separately (package gatekit/migration).
 type FeatureReport struct {
-	// Version is the protocol version the report was resolved against.
-	Version  Protocol
+	// Version is the activation version the report was resolved against.
+	Version  Activation
 	Features []FeatureInfo
 }
 
@@ -32,8 +32,8 @@ func (g *FeatureGate) Report() FeatureReport {
 }
 
 // ReportAt lists every feature with its description and state resolved against an
-// explicit protocol version, sorted by feature identifier.
-func (g *FeatureGate) ReportAt(version Protocol) FeatureReport {
+// explicit activation version, sorted by feature identifier.
+func (g *FeatureGate) ReportAt(version Activation) FeatureReport {
 	rep := FeatureReport{Version: version}
 	for _, f := range g.Features() {
 		info := FeatureInfo{
@@ -53,7 +53,7 @@ func (g *FeatureGate) ReportAt(version Protocol) FeatureReport {
 // feature with its state, maturity, and description.
 func (r FeatureReport) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Features at protocol %d:\n", r.Version)
+	fmt.Fprintf(&b, "Features at activation %d:\n", r.Version)
 	if len(r.Features) == 0 {
 		b.WriteString("  (none)\n")
 		return b.String()

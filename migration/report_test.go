@@ -40,7 +40,7 @@ func TestReportText(t *testing.T) {
 
 	text := plan.Report().String()
 	for _, want := range []string{
-		"Plan: protocol 4 -> 6",
+		"Plan: activation 4 -> 6",
 		"Run now (host-local)",
 		"- a [host-local] a",
 		"Held for finalize (interop)",

@@ -9,7 +9,7 @@ type Option func(*config) error
 // config holds the resolved construction settings before a FeatureGate is built.
 // It carries defaults so New can apply options over a known baseline.
 type config struct {
-	// window is the support window W: the number of prior protocol versions the
+	// window is the support window W: the number of prior activation versions the
 	// gate also supports. Defaults to 1 (strict N/N+1).
 	window int
 	// overrides forces specific features on or off regardless of the
@@ -24,11 +24,11 @@ func defaultConfig() config {
 	return config{window: 1}
 }
 
-// WithSupportWindow sets the support window W — the number of prior protocol
+// WithSupportWindow sets the support window W — the number of prior activation
 // versions the gate supports in addition to Max, so Min = max(firstVersion,
 // Max - W). W defaults to 1 (strict N/N+1); a consumer MAY widen it (N/N+3,
 // N/N+5, ...). W is the support breadth and is distinct from the per-release
-// increment rule (protocol version grows by at most 1 per release). W must be
+// increment rule (activation version grows by at most 1 per release). W must be
 // non-negative.
 func WithSupportWindow(w int) Option {
 	return func(c *config) error {
@@ -43,7 +43,7 @@ func WithSupportWindow(w int) Option {
 // WithOverrides forces specific features on or off regardless of the
 // version-resolved default — the highest-precedence input to resolution
 // (core-spec §5), mirroring Kubernetes --feature-gates=Foo=true. An override
-// takes effect regardless of the current protocol version, including before a
+// takes effect regardless of the current activation version, including before a
 // feature's first spec is reached. An override MAY only name a registered
 // feature; New rejects an override for an unknown feature (a mistyped identifier
 // would otherwise silently force nothing). Repeated calls merge, last value wins.

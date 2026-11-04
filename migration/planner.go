@@ -16,7 +16,7 @@ type Step struct {
 	Reason string
 }
 
-// Plan is the ordered set of migration steps to move from one protocol version to
+// Plan is the ordered set of migration steps to move from one activation version to
 // another. It is a pure value: computed on demand, never stored.
 type Plan struct {
 	From  int

@@ -16,7 +16,7 @@ type StepReport struct {
 }
 
 // PlanReport is the structured, machine-renderable preview of a Plan: a from→to
-// protocol step with its steps split into those that run now (host-local) and
+// activation step with its steps split into those that run now (host-local) and
 // those held for a coordinated finalize (interop). It marshals to JSON directly
 // and renders to text via String.
 type PlanReport struct {
@@ -52,7 +52,7 @@ func (pl Plan) Report() PlanReport {
 // grouping run-now and held steps. An empty plan renders as "(nothing to do)".
 func (r PlanReport) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Plan: protocol %d -> %d\n", r.From, r.To)
+	fmt.Fprintf(&b, "Plan: activation %d -> %d\n", r.From, r.To)
 	if len(r.RunNow) == 0 && len(r.Held) == 0 {
 		b.WriteString("  (nothing to do)\n")
 		return b.String()

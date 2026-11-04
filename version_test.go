@@ -10,9 +10,9 @@ func TestEffectiveVersion(t *testing.T) {
 		name    string
 		specs   Registry
 		window  int // -1 means "use the default (omit the option)"
-		active  Protocol
-		wantMin Protocol
-		wantMax Protocol
+		active  Activation
+		wantMin Activation
+		wantMax Activation
 	}{
 		{
 			name:    "default window W=1 floors above firstVersion",
@@ -24,7 +24,7 @@ func TestEffectiveVersion(t *testing.T) {
 		},
 		{
 			name:    "wide window clamps to firstVersion",
-			specs:   Registry{featureA: {Specs: VersionedSpecs{{Since: 0}, {Since: 6}}}},
+			specs:   Registry{featureA: {Specs: VersionedSpecs{{ActiveFrom: 0}, {ActiveFrom: 6}}}},
 			window:  5,
 			active:  3,
 			wantMin: 1, // max(0, 6-5)
@@ -72,7 +72,7 @@ func TestCheck(t *testing.T) {
 	tests := []struct {
 		name    string
 		window  int
-		active  Protocol
+		active  Activation
 		wantErr bool
 	}{
 		{name: "W=1 active=max ok", window: 1, active: 6, wantErr: false},

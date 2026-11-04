@@ -23,10 +23,10 @@ func TestDescriptionGetter(t *testing.T) {
 
 func TestDescriptionDoesNotAffectResolution(t *testing.T) {
 	withDesc := Registry{
-		featureA: {Description: "has a description", Specs: VersionedSpecs{{Since: 4, Default: true, Maturity: GA}}},
+		featureA: {Description: "has a description", Specs: VersionedSpecs{{ActiveFrom: 4, Default: true, Maturity: GA}}},
 	}
 	noDesc := Registry{
-		featureA: {Specs: VersionedSpecs{{Since: 4, Default: true, Maturity: GA}}},
+		featureA: {Specs: VersionedSpecs{{ActiveFrom: 4, Default: true, Maturity: GA}}},
 	}
 	g1, _ := New(withDesc, StaticVersion(5))
 	g2, _ := New(noDesc, StaticVersion(5))
@@ -63,7 +63,7 @@ func TestReport(t *testing.T) {
 	}
 
 	text := rep.String()
-	for _, want := range []string{"Features at protocol 6:", "featureA", "[GA] on", "feature A", "featureB", "[ALPHA] off"} {
+	for _, want := range []string{"Features at activation 6:", "featureA", "[GA] on", "feature A", "featureB", "[ALPHA] off"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("report text missing %q:\n%s", want, text)
 		}
