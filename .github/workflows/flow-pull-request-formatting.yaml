@@ -15,6 +15,7 @@ defaults:
 permissions:
   contents: read
   statuses: write
+  pull-requests: read
 
 concurrency:
   group: pr-formatting-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
