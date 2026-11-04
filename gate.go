@@ -5,20 +5,20 @@ import (
 	"sort"
 )
 
-// VersionSource yields the protocol version currently in force. gatekit does not
+// VersionSource yields the activation version currently in force. gatekit does not
 // decide who owns this value: a consumer wires it to whatever is authoritative —
 // a tool-decided active version (see package gatekit/migration), or an
 // externally-set value.
 type VersionSource interface {
-	Current() int
+	Current() Activation
 }
 
-// StaticVersion is a trivial VersionSource for a fixed version, convenient for
-// simple consumers and tests.
-type StaticVersion int
+// StaticVersion is a trivial VersionSource for a fixed activation version, convenient
+// for simple consumers and tests.
+type StaticVersion Activation
 
 // Current implements VersionSource.
-func (s StaticVersion) Current() int { return int(s) }
+func (s StaticVersion) Current() Activation { return Activation(s) }
 
 // FeatureGate resolves feature state against a VersionSource. It is safe for
 // concurrent use: the registry is immutable after New and the VersionSource is
@@ -54,13 +54,12 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 			return nil, fmt.Errorf("gatekit: feature %q has no specs", f)
 		}
 		cp := append(VersionedSpecs(nil), def.Specs...)
-		sort.Slice(cp, func(i, j int) bool { return cp[i].Version < cp[j].Version })
+		sort.Slice(cp, func(i, j int) bool { return cp[i].ActiveFrom < cp[j].ActiveFrom })
 		for i, s := range cp {
-			if s.Version < 0 {
-				return nil, fmt.Errorf("gatekit: feature %q has a negative version %d", f, s.Version)
-			}
-			if i > 0 && cp[i-1].Version == s.Version {
-				return nil, fmt.Errorf("gatekit: feature %q has a duplicate version %d", f, s.Version)
+			// ActiveFrom is a Activation (unsigned), so a negative version is
+			// unrepresentable; only duplicates need checking here.
+			if i > 0 && cp[i-1].ActiveFrom == s.ActiveFrom {
+				return nil, fmt.Errorf("gatekit: feature %q has a duplicate activation version %d", f, s.ActiveFrom)
 			}
 		}
 		normalized[f] = FeatureDef{Description: def.Description, Specs: cp}
@@ -81,16 +80,16 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 	}, nil
 }
 
-// Enabled reports whether feature f is on at the current protocol version. See
+// Enabled reports whether feature f is on at the current activation version. See
 // resolve for the precedence (override > version-resolved default, subject to the
 // ALPHA opt-in > off).
 func (g *FeatureGate) Enabled(f Feature) bool {
 	return g.resolve(f, g.source.Current())
 }
 
-// EnabledAt is Enabled resolved against an explicit version rather than the
-// VersionSource. Useful for planning and tests.
-func (g *FeatureGate) EnabledAt(f Feature, version int) bool {
+// EnabledAt is Enabled resolved against an explicit activation version rather than
+// the VersionSource. Useful for planning and tests.
+func (g *FeatureGate) EnabledAt(f Feature, version Activation) bool {
 	return g.resolve(f, version)
 }
 
@@ -101,7 +100,7 @@ func (g *FeatureGate) EnabledAt(f Feature, version int) bool {
 //  2. the version-resolved default of the effective spec, except an ALPHA spec
 //     resolves off unless the gate is opted in (WithExperimental),
 //  3. off (unknown feature, or first spec not yet reached).
-func (g *FeatureGate) resolve(f Feature, v int) bool {
+func (g *FeatureGate) resolve(f Feature, v Activation) bool {
 	if ov, ok := g.overrides[f]; ok {
 		return ov
 	}
@@ -109,7 +108,7 @@ func (g *FeatureGate) resolve(f Feature, v int) bool {
 	if !ok {
 		return false
 	}
-	if spec.PreRelease == Alpha && !g.allowAlpha {
+	if spec.Maturity == Alpha && !g.allowAlpha {
 		return false
 	}
 	return spec.Default
@@ -117,7 +116,7 @@ func (g *FeatureGate) resolve(f Feature, v int) bool {
 
 // specAt returns the effective spec for f at version v. Specs are sorted
 // ascending, so the last one with Version <= v wins.
-func (g *FeatureGate) specAt(f Feature, v int) (FeatureSpec, bool) {
+func (g *FeatureGate) specAt(f Feature, v Activation) (FeatureSpec, bool) {
 	def, ok := g.specs[f]
 	if !ok {
 		return FeatureSpec{}, false
@@ -125,7 +124,7 @@ func (g *FeatureGate) specAt(f Feature, v int) (FeatureSpec, bool) {
 	var out FeatureSpec
 	found := false
 	for _, s := range def.Specs {
-		if s.Version > v {
+		if s.ActiveFrom > v {
 			break
 		}
 		out, found = s, true
@@ -133,15 +132,15 @@ func (g *FeatureGate) specAt(f Feature, v int) (FeatureSpec, bool) {
 	return out, found
 }
 
-// MaxVersion returns the highest protocol version referenced by any spec in the
-// registry, or 0 if the registry is empty. Consumers derive their
-// maxProtocolVersion from this so it is never hand-maintained.
-func (g *FeatureGate) MaxVersion() int {
-	max := 0
+// MaxActivation returns the highest activation version referenced by any spec in the
+// registry, or 0 if the registry is empty. Consumers derive their max supported
+// activation from this so it is never hand-maintained.
+func (g *FeatureGate) MaxActivation() Activation {
+	var max Activation
 	for _, def := range g.specs {
 		for _, s := range def.Specs {
-			if s.Version > max {
-				max = s.Version
+			if s.ActiveFrom > max {
+				max = s.ActiveFrom
 			}
 		}
 	}

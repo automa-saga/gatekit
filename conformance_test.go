@@ -11,9 +11,9 @@ import (
 const conformanceDir = "docs/spec/conformance"
 
 type specJSON struct {
-	Version    int    `json:"version"`
-	Default    bool   `json:"default"`
-	PreRelease string `json:"preRelease"`
+	ActiveFrom Activation `json:"activeFrom"`
+	Default    bool       `json:"default"`
+	Maturity   string     `json:"maturity"`
 }
 
 type featureDefJSON struct {
@@ -65,7 +65,7 @@ func TestConformanceResolution(t *testing.T) {
 		for f, def := range fx.Registry {
 			vs := make(VersionedSpecs, 0, len(def.Specs))
 			for _, s := range def.Specs {
-				vs = append(vs, FeatureSpec{Version: s.Version, Default: s.Default, PreRelease: PreRelease(s.PreRelease)})
+				vs = append(vs, FeatureSpec{ActiveFrom: s.ActiveFrom, Default: s.Default, Maturity: Maturity(s.Maturity)})
 			}
 			reg[Feature(f)] = FeatureDef{Description: def.Description, Specs: vs}
 		}
@@ -89,7 +89,7 @@ func TestConformanceResolution(t *testing.T) {
 				t.Fatalf("%s: New() error: %v", fx.Name, err)
 			}
 			for feature, want := range c.Enabled {
-				if got := gate.EnabledAt(Feature(feature), c.Active); got != want {
+				if got := gate.EnabledAt(Feature(feature), Activation(c.Active)); got != want {
 					t.Errorf("%s: EnabledAt(%q, %d) = %v, want %v", fx.Name, feature, c.Active, got, want)
 				}
 			}
@@ -109,10 +109,10 @@ type invariantFixture struct {
 }
 
 // TestConformanceInvariant runs the language-neutral run-invariant fixtures from
-// gatekit-spec (protocol-spec §3) against this implementation. Each fixture gives
+// gatekit-spec (activation-spec §3) against this implementation. Each fixture gives
 // max, the window W, and firstVersion; the expected min is
 // max(firstVersion, max-W). The check is exercised end-to-end through New +
-// Check by building a registry whose MaxVersion and firstVersion match the
+// Check by building a registry whose MaxActivation and firstActivation match the
 // fixture. It skips when the spec submodule is not checked out.
 func TestConformanceInvariant(t *testing.T) {
 	if _, err := os.Stat(conformanceDir); os.IsNotExist(err) {
@@ -152,11 +152,11 @@ func TestConformanceInvariant(t *testing.T) {
 	}
 }
 
-// invariantSpecs builds a minimal VersionedSpecs whose lowest version is first and
-// whose highest is max, so the gate's MaxVersion and firstVersion match a fixture.
+// invariantSpecs builds a minimal VersionedSpecs whose lowest activation is first and
+// whose highest is max, so the gate's MaxActivation and firstActivation match a fixture.
 func invariantSpecs(first, max int) VersionedSpecs {
 	if first == max {
-		return VersionedSpecs{{Version: first}}
+		return VersionedSpecs{{ActiveFrom: Activation(first)}}
 	}
-	return VersionedSpecs{{Version: first}, {Version: max}}
+	return VersionedSpecs{{ActiveFrom: Activation(first)}, {ActiveFrom: Activation(max)}}
 }

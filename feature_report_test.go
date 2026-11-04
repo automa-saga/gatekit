@@ -23,10 +23,10 @@ func TestDescriptionGetter(t *testing.T) {
 
 func TestDescriptionDoesNotAffectResolution(t *testing.T) {
 	withDesc := Registry{
-		featureA: {Description: "has a description", Specs: VersionedSpecs{{Version: 4, Default: true, PreRelease: GA}}},
+		featureA: {Description: "has a description", Specs: VersionedSpecs{{ActiveFrom: 4, Default: true, Maturity: GA}}},
 	}
 	noDesc := Registry{
-		featureA: {Specs: VersionedSpecs{{Version: 4, Default: true, PreRelease: GA}}},
+		featureA: {Specs: VersionedSpecs{{ActiveFrom: 4, Default: true, Maturity: GA}}},
 	}
 	g1, _ := New(withDesc, StaticVersion(5))
 	g2, _ := New(noDesc, StaticVersion(5))
@@ -54,16 +54,16 @@ func TestReport(t *testing.T) {
 	}
 	// Sorted by feature identifier: featureA, featureB.
 	a := rep.Features[0]
-	if a.Feature != featureA || a.Description != "feature A" || !a.Enabled || a.PreRelease != GA {
+	if a.Feature != featureA || a.Description != "feature A" || !a.Enabled || a.Maturity != GA {
 		t.Errorf("featureA info = %+v, want {featureA, desc, enabled, GA}", a)
 	}
 	b := rep.Features[1]
-	if b.Feature != featureB || b.Enabled || b.PreRelease != Alpha {
+	if b.Feature != featureB || b.Enabled || b.Maturity != Alpha {
 		t.Errorf("featureB info = %+v, want {featureB, off, ALPHA}", b)
 	}
 
 	text := rep.String()
-	for _, want := range []string{"Features at protocol 6:", "featureA", "[GA] on", "feature A", "featureB", "[ALPHA] off"} {
+	for _, want := range []string{"Features at activation 6:", "featureA", "[GA] on", "feature A", "featureB", "[ALPHA] off"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("report text missing %q:\n%s", want, text)
 		}
@@ -76,8 +76,8 @@ func TestReportAtUnreachedFeature(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 	rep := g.ReportAt(3) // before featureA's first spec (v4)
-	if rep.Features[0].PreRelease != "" {
-		t.Errorf("unreached feature PreRelease = %q, want empty", rep.Features[0].PreRelease)
+	if rep.Features[0].Maturity != "" {
+		t.Errorf("unreached feature Maturity = %q, want empty", rep.Features[0].Maturity)
 	}
 	if rep.Features[0].Enabled {
 		t.Errorf("unreached feature should be off")

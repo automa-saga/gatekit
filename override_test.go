@@ -7,8 +7,8 @@ import "testing"
 // the declared default.
 func overrideRegistry() Registry {
 	return Registry{
-		"betaFeature":  {Specs: VersionedSpecs{{Version: 4, Default: true, PreRelease: Beta}}},
-		"alphaFeature": {Specs: VersionedSpecs{{Version: 4, Default: true, PreRelease: Alpha}}},
+		"betaFeature":  {Specs: VersionedSpecs{{ActiveFrom: 4, Default: true, Maturity: Beta}}},
+		"alphaFeature": {Specs: VersionedSpecs{{ActiveFrom: 4, Default: true, Maturity: Alpha}}},
 	}
 }
 
@@ -17,7 +17,7 @@ func TestResolutionPrecedence(t *testing.T) {
 		name    string
 		opts    []Option
 		feature Feature
-		version int
+		version Activation
 		want    bool
 	}{
 		{name: "beta follows default", feature: "betaFeature", version: 5, want: true},

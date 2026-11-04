@@ -11,6 +11,13 @@ declared at compile time and resolved against a version, not fetched from a remo
 flag service. It is the standalone analogue of Kubernetes'
 `component-base/featuregate`.
 
+The version gatekit keys on is the **activation version** — a standalone counter
+that advances only on a gated behavior change, independent of the release version.
+This is the same decoupled-counter idea as CockroachDB's cluster version,
+Kubernetes' emulation version (KEP-4330), and Kafka's inter-broker protocol
+version; a consumer maps the activation version onto whichever counter is
+authoritative for them.
+
 ## Two layers
 
 Take only what you need:
@@ -38,7 +45,7 @@ for everything else:
   pulls in a large part of the Kubernetes module tree and pins you to its release
   cadence.
 - **Release-independent version.** gatekit keys on a standalone monotonic
-  `protocolVersion` that moves only on a behavior change — not on a Kubernetes
+  activation version that moves only on a behavior change — not on a Kubernetes
   release minor, which component-base's emulation version is tied to.
 - **Configurable skew window.** N/N+1 by default, widenable per consumer;
   component-base fixes roughly three minors.
@@ -66,8 +73,8 @@ specs := gatekit.Registry{
     SplitCatalog: {
         Description: "Load the per-minor split catalog instead of the single file",
         Specs: gatekit.VersionedSpecs{
-            {Version: 5, Default: false, PreRelease: gatekit.Beta},
-            {Version: 6, Default: true,  PreRelease: gatekit.GA},
+            {ActiveFrom: 5, Default: false, Maturity: gatekit.Beta},
+            {ActiveFrom: 6, Default: true,  Maturity: gatekit.GA},
         },
     },
 }
@@ -84,10 +91,10 @@ if gate.Enabled(SplitCatalog) {
 }
 ```
 
-A feature's state is the `Default` of the latest spec whose `Version` is `<=` the
-current version. Unknown or not-yet-reached features are off. `gate.MaxVersion()`
-derives the newest protocol version in the registry, so consumers never
-hand-maintain it.
+A feature's state is the `Default` of the latest spec whose `ActiveFrom` is `<=`
+the current activation version. Unknown or not-yet-reached features are off.
+`gate.MaxActivation()` derives the newest activation version in the registry, so
+consumers never hand-maintain it.
 
 Each feature may carry an optional, free-form `Description`. It is informational —
 it never affects resolution or the run invariant — and surfaces in operator-facing
@@ -100,10 +107,10 @@ externally (for example a CRD field).
 
 ## Migration / activation
 
-The `migration` package ties one-time, idempotent migrations to protocol
+The `migration` package ties one-time, idempotent migrations to activation
 versions. **Host-local** migrations may run as soon as their version activates;
 **interop** migrations are held for a coordinated `finalize`, so a staggered
-rollout never leaves a mixed-protocol fleet. `finalize` advances the active
+rollout never leaves a mixed-activation fleet. `finalize` advances the active
 version — the one-way line, since migrations may be irreversible.
 
 ```go

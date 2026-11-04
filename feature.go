@@ -3,29 +3,29 @@ package gatekit
 // Feature is the stable identifier of a gated behavior.
 type Feature string
 
-// FeatureSpec declares a feature's default and maturity from a given protocol
+// FeatureSpec declares a feature's default and maturity from a given activation
 // version onward. A feature carries one spec per version at which its default or
-// maturity changes; the spec in force is the one with the highest Version that is
-// less than or equal to the current version.
+// maturity changes; the spec in force is the one with the highest ActiveFrom that
+// is less than or equal to the current activation version.
 //
-// Example lifecycle for a feature introduced at protocol 5 and promoted at 6:
+// Example lifecycle for a feature introduced at activation 5 and promoted at 6:
 //
 //	VersionedSpecs{
-//	    {Version: 5, Default: false, PreRelease: Beta},
-//	    {Version: 6, Default: true,  PreRelease: GA},
+//	    {ActiveFrom: 5, Default: false, Maturity: Beta},
+//	    {ActiveFrom: 6, Default: true,  Maturity: GA},
 //	}
 type FeatureSpec struct {
-	// Version is the protocol version at which this spec takes effect (>= 0).
-	Version int
-	// Default is whether the feature is on at or after Version, unless a later
+	// ActiveFrom is the activation version at which this spec takes effect.
+	ActiveFrom Activation
+	// Default is whether the feature is on at or after ActiveFrom, unless a later
 	// spec overrides it.
 	Default bool
-	// PreRelease is the feature's maturity at this version.
-	PreRelease PreRelease
+	// Maturity is the feature's lifecycle stage at this version.
+	Maturity Maturity
 }
 
-// VersionedSpecs is a feature's lifecycle across protocol versions. Order does
-// not matter at declaration time; gatekit sorts by Version when the gate is built.
+// VersionedSpecs is a feature's lifecycle across activation versions. Order does
+// not matter at declaration time; gatekit sorts by ActiveFrom when the gate is built.
 type VersionedSpecs []FeatureSpec
 
 // FeatureDef is a feature's registry entry: its versioned specs plus an optional
@@ -35,8 +35,8 @@ type VersionedSpecs []FeatureSpec
 //	    SplitCatalog: {
 //	        Description: "Load the per-minor split catalog instead of the single file",
 //	        Specs: VersionedSpecs{
-//	            {Version: 5, Default: false, PreRelease: Beta},
-//	            {Version: 6, Default: true,  PreRelease: GA},
+//	            {ActiveFrom: 5, Default: false, Maturity: Beta},
+//	            {ActiveFrom: 6, Default: true,  Maturity: GA},
 //	        },
 //	    },
 //	}
@@ -45,7 +45,7 @@ type FeatureDef struct {
 	// listings, generated docs, and the plan / dry-run output. It is informational
 	// only: it never affects resolution or the run invariant, and MAY be empty.
 	Description string
-	// Specs is the feature's lifecycle across protocol versions.
+	// Specs is the feature's lifecycle across activation versions.
 	Specs VersionedSpecs
 }
 

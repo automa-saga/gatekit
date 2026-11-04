@@ -12,13 +12,13 @@ func testRegistry() Registry {
 		featureA: {
 			Description: "feature A",
 			Specs: VersionedSpecs{
-				{Version: 4, Default: false, PreRelease: Beta},
-				{Version: 6, Default: true, PreRelease: GA},
+				{ActiveFrom: 4, Default: false, Maturity: Beta},
+				{ActiveFrom: 6, Default: true, Maturity: GA},
 			},
 		},
 		featureB: {
 			Specs: VersionedSpecs{
-				{Version: 5, Default: false, PreRelease: Alpha},
+				{ActiveFrom: 5, Default: false, Maturity: Alpha},
 			},
 		},
 	}
@@ -34,8 +34,7 @@ func TestNewValidation(t *testing.T) {
 		{name: "ok", specs: testRegistry(), source: StaticVersion(5)},
 		{name: "nil source", specs: testRegistry(), source: nil, wantErr: true},
 		{name: "empty specs", specs: Registry{featureA: {}}, source: StaticVersion(0), wantErr: true},
-		{name: "negative version", specs: Registry{featureA: {Specs: VersionedSpecs{{Version: -1}}}}, source: StaticVersion(0), wantErr: true},
-		{name: "duplicate version", specs: Registry{featureA: {Specs: VersionedSpecs{{Version: 3}, {Version: 3}}}}, source: StaticVersion(0), wantErr: true},
+		{name: "duplicate version", specs: Registry{featureA: {Specs: VersionedSpecs{{ActiveFrom: 3}, {ActiveFrom: 3}}}}, source: StaticVersion(0), wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -54,7 +53,7 @@ func TestEnabledAt(t *testing.T) {
 	}
 	tests := []struct {
 		feature Feature
-		version int
+		version Activation
 		want    bool
 	}{
 		{featureA, 3, false},    // before first spec
@@ -85,20 +84,20 @@ func TestEnabledUsesSource(t *testing.T) {
 	}
 }
 
-func TestMaxVersion(t *testing.T) {
+func TestMaxActivation(t *testing.T) {
 	g, err := New(testRegistry(), StaticVersion(0))
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-	if got := g.MaxVersion(); got != 6 {
-		t.Errorf("MaxVersion() = %d, want 6", got)
+	if got := g.MaxActivation(); got != 6 {
+		t.Errorf("MaxActivation() = %d, want 6", got)
 	}
 	empty, err := New(Registry{}, StaticVersion(0))
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-	if got := empty.MaxVersion(); got != 0 {
-		t.Errorf("MaxVersion() empty = %d, want 0", got)
+	if got := empty.MaxActivation(); got != 0 {
+		t.Errorf("MaxActivation() empty = %d, want 0", got)
 	}
 }
 

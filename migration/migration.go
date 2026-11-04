@@ -1,10 +1,10 @@
 // Package migration adds deferred activation and gated, one-time migrations on
 // top of the gatekit feature-gate core.
 //
-// Each migration is tied to a protocol version and a scope. When a protocol
+// Each migration is tied to an activation version and a scope. When an activation
 // version activates, its host-local migrations may run immediately; its interop
 // migrations are held for a coordinated finalize, so a staggered rollout never
-// leaves a mixed-protocol fleet. finalize is the one-way line: because migrations
+// leaves a mixed-activation fleet. finalize is the one-way line: because migrations
 // may be irreversible, binary rollback is clean only before it.
 //
 // The design is generalized from the migration framework in hashgraph/solo-weaver
@@ -26,12 +26,12 @@ type Scope string
 
 const (
 	// HostLocal migrations affect only the host they run on. In the built-in
-	// default policy they run as soon as their protocol version activates (e.g. at
+	// default policy they run as soon as their activation version activates (e.g. at
 	// install).
 	HostLocal Scope = "host-local"
 	// Interop migrations affect cross-host or network agreement. In the built-in
 	// default policy they are held until a coordinated finalize, to avoid a
-	// mixed-protocol fleet.
+	// mixed-activation fleet.
 	Interop Scope = "interop"
 )
 
@@ -60,13 +60,13 @@ func DefaultScopePolicy() ScopePolicy {
 	return ScopePolicy{HostLocal: PolicyRunNow, Interop: PolicyHeld}
 }
 
-// Migration is a one-time, idempotent transformation tied to a protocol version.
+// Migration is a one-time, idempotent transformation tied to an activation version.
 type Migration interface {
 	// ID uniquely identifies the migration (stable across releases).
 	ID() string
 	// Description is a short human-readable summary.
 	Description() string
-	// Version is the protocol version this migration activates with.
+	// Version is the activation version this migration activates with.
 	Version() int
 	// Scope controls whether it may run at install or is held for finalize.
 	Scope() Scope
@@ -80,12 +80,13 @@ type Migration interface {
 	Rollback(ctx context.Context) error
 }
 
-// Store persists and reports the active protocol version. Its Current method
-// satisfies gatekit.VersionSource, so the same value drives both feature-gate
-// resolution and migration planning.
+// Store persists and reports the currently-active activation version. A consumer
+// wires its active value into a gatekit.VersionSource (converting the int to
+// gatekit.Activation, e.g. gatekit.StaticVersion(store.Current())), so the same
+// value drives both feature-gate resolution and migration planning.
 type Store interface {
-	// Current returns the active protocol version.
+	// Current returns the currently-active activation version.
 	Current() int
-	// SetActive persists a new active protocol version (the finalize step).
+	// SetActive persists a new active activation version (the finalize step).
 	SetActive(version int) error
 }

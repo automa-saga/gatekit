@@ -5,23 +5,23 @@ import (
 	"strings"
 )
 
-// FeatureInfo is the operator-facing view of one feature at a protocol version: its
+// FeatureInfo is the operator-facing view of one feature at an activation version: its
 // description, maturity, and resolved state. It is what a listing / dry-run shows.
 type FeatureInfo struct {
 	Feature     Feature
 	Description string
-	// PreRelease is the maturity of the effective spec at the reported version, or
-	// empty if the feature's first spec is not yet reached.
-	PreRelease PreRelease
-	Enabled    bool
+	// Maturity is the lifecycle stage of the effective spec at the reported version,
+	// or empty if the feature's first spec is not yet reached.
+	Maturity Maturity
+	Enabled  bool
 }
 
 // FeatureReport is a listing of features with their descriptions and resolved state
 // — the gate's --plan / dry-run view for operators and generated docs. Migration
 // steps are reported separately (package gatekit/migration).
 type FeatureReport struct {
-	// Version is the protocol version the report was resolved against.
-	Version  int
+	// Version is the activation version the report was resolved against.
+	Version  Activation
 	Features []FeatureInfo
 }
 
@@ -32,8 +32,8 @@ func (g *FeatureGate) Report() FeatureReport {
 }
 
 // ReportAt lists every feature with its description and state resolved against an
-// explicit version, sorted by feature identifier.
-func (g *FeatureGate) ReportAt(version int) FeatureReport {
+// explicit activation version, sorted by feature identifier.
+func (g *FeatureGate) ReportAt(version Activation) FeatureReport {
 	rep := FeatureReport{Version: version}
 	for _, f := range g.Features() {
 		info := FeatureInfo{
@@ -42,7 +42,7 @@ func (g *FeatureGate) ReportAt(version int) FeatureReport {
 			Enabled:     g.resolve(f, version),
 		}
 		if spec, ok := g.specAt(f, version); ok {
-			info.PreRelease = spec.PreRelease
+			info.Maturity = spec.Maturity
 		}
 		rep.Features = append(rep.Features, info)
 	}
@@ -53,7 +53,7 @@ func (g *FeatureGate) ReportAt(version int) FeatureReport {
 // feature with its state, maturity, and description.
 func (r FeatureReport) String() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Features at protocol %d:\n", r.Version)
+	fmt.Fprintf(&b, "Features at activation %d:\n", r.Version)
 	if len(r.Features) == 0 {
 		b.WriteString("  (none)\n")
 		return b.String()
@@ -63,7 +63,7 @@ func (r FeatureReport) String() string {
 		if f.Enabled {
 			state = "on"
 		}
-		maturity := string(f.PreRelease)
+		maturity := string(f.Maturity)
 		if maturity == "" {
 			maturity = "-"
 		}
