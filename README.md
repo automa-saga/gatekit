@@ -11,6 +11,13 @@ declared at compile time and resolved against a version, not fetched from a remo
 flag service. It is the standalone analogue of Kubernetes'
 `component-base/featuregate`.
 
+The version gatekit keys on is the **activation version** — a standalone counter
+that advances only on a gated behavior change, independent of the release version.
+This is the same decoupled-counter idea as CockroachDB's cluster version,
+Kubernetes' emulation version (KEP-4330), and Kafka's inter-broker protocol
+version; a consumer maps the activation version onto whichever counter is
+authoritative for them.
+
 ## Two layers
 
 Take only what you need:
