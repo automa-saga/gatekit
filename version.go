@@ -61,8 +61,8 @@ func (g *FeatureGate) Check() error {
 func (g *FeatureGate) firstVersion() int {
 	first := 0
 	seen := false
-	for _, vs := range g.specs {
-		v := vs[0].Version
+	for _, def := range g.specs {
+		v := def.Specs[0].Version
 		if !seen || v < first {
 			first, seen = v, true
 		}

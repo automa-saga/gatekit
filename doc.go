@@ -13,9 +13,9 @@
 //
 // Two layers, so a consumer takes only what it needs:
 //
-//   - The gate core (this package): a Feature registry of VersionedSpecs and a
-//     FeatureGate that resolves each feature against a pluggable VersionSource.
-//     Dependency-light; usable by any Go project.
+//   - The gate core (this package): a Feature registry of FeatureDefs (an optional
+//     description plus VersionedSpecs) and a FeatureGate that resolves each feature
+//     against a pluggable VersionSource. Dependency-light; usable by any Go project.
 //   - The migration/activation layer (package gatekit/migration): deferred
 //     activation, gated one-time migrations, and a finalize step for rolling
 //     upgrades. Opt-in.

@@ -7,8 +7,8 @@ import "testing"
 // the declared default.
 func overrideRegistry() Registry {
 	return Registry{
-		"betaFeature":  {{Version: 4, Default: true, PreRelease: Beta}},
-		"alphaFeature": {{Version: 4, Default: true, PreRelease: Alpha}},
+		"betaFeature":  {Specs: VersionedSpecs{{Version: 4, Default: true, PreRelease: Beta}}},
+		"alphaFeature": {Specs: VersionedSpecs{{Version: 4, Default: true, PreRelease: Alpha}}},
 	}
 }
 

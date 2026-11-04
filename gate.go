@@ -49,11 +49,11 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 	}
 
 	normalized := make(Registry, len(specs))
-	for f, vs := range specs {
-		if len(vs) == 0 {
+	for f, def := range specs {
+		if len(def.Specs) == 0 {
 			return nil, fmt.Errorf("gatekit: feature %q has no specs", f)
 		}
-		cp := append(VersionedSpecs(nil), vs...)
+		cp := append(VersionedSpecs(nil), def.Specs...)
 		sort.Slice(cp, func(i, j int) bool { return cp[i].Version < cp[j].Version })
 		for i, s := range cp {
 			if s.Version < 0 {
@@ -63,7 +63,7 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 				return nil, fmt.Errorf("gatekit: feature %q has a duplicate version %d", f, s.Version)
 			}
 		}
-		normalized[f] = cp
+		normalized[f] = FeatureDef{Description: def.Description, Specs: cp}
 	}
 
 	for f := range cfg.overrides {
@@ -118,13 +118,13 @@ func (g *FeatureGate) resolve(f Feature, v int) bool {
 // specAt returns the effective spec for f at version v. Specs are sorted
 // ascending, so the last one with Version <= v wins.
 func (g *FeatureGate) specAt(f Feature, v int) (FeatureSpec, bool) {
-	vs, ok := g.specs[f]
+	def, ok := g.specs[f]
 	if !ok {
 		return FeatureSpec{}, false
 	}
 	var out FeatureSpec
 	found := false
-	for _, s := range vs {
+	for _, s := range def.Specs {
 		if s.Version > v {
 			break
 		}
@@ -138,14 +138,21 @@ func (g *FeatureGate) specAt(f Feature, v int) (FeatureSpec, bool) {
 // maxProtocolVersion from this so it is never hand-maintained.
 func (g *FeatureGate) MaxVersion() int {
 	max := 0
-	for _, vs := range g.specs {
-		for _, s := range vs {
+	for _, def := range g.specs {
+		for _, s := range def.Specs {
 			if s.Version > max {
 				max = s.Version
 			}
 		}
 	}
 	return max
+}
+
+// Description returns the human-readable description registered for f, or the empty
+// string if f is unknown or has none. It is informational and never affects whether
+// f is Enabled.
+func (g *FeatureGate) Description(f Feature) string {
+	return g.specs[f].Description
 }
 
 // Features returns the registered feature identifiers, sorted.

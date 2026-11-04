@@ -28,5 +28,26 @@ type FeatureSpec struct {
 // not matter at declaration time; gatekit sorts by Version when the gate is built.
 type VersionedSpecs []FeatureSpec
 
-// Registry maps each feature to its versioned specs.
-type Registry map[Feature]VersionedSpecs
+// FeatureDef is a feature's registry entry: its versioned specs plus an optional
+// human-readable description.
+//
+//	Registry{
+//	    SplitCatalog: {
+//	        Description: "Load the per-minor split catalog instead of the single file",
+//	        Specs: VersionedSpecs{
+//	            {Version: 5, Default: false, PreRelease: Beta},
+//	            {Version: 6, Default: true,  PreRelease: GA},
+//	        },
+//	    },
+//	}
+type FeatureDef struct {
+	// Description is a human-readable summary of the feature, for operator-facing
+	// listings, generated docs, and the plan / dry-run output. It is informational
+	// only: it never affects resolution or the run invariant, and MAY be empty.
+	Description string
+	// Specs is the feature's lifecycle across protocol versions.
+	Specs VersionedSpecs
+}
+
+// Registry maps each feature to its definition (description + versioned specs).
+type Registry map[Feature]FeatureDef
