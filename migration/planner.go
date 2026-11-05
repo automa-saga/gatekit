@@ -9,8 +9,8 @@ import (
 // Step is a single planned migration action.
 type Step struct {
 	Migration Migration
-	// RunNow is true when the migration runs at this activation (host-local);
-	// false when it is held for a coordinated finalize (interop).
+	// RunNow is true when the migration runs at this activation (local);
+	// false when it is run-at-finalize for a coordinated finalize (shared).
 	RunNow bool
 	// Reason explains the RunNow decision, for the --plan / --dry-run preview.
 	Reason string
@@ -47,8 +47,8 @@ func NewPlanner(migrations ...Migration) *Planner {
 
 // WithScopePolicy registers a consumer scope→policy classifier and returns the
 // Planner for chaining. The given entries are merged over the built-in default, so
-// consumer scopes are added and host-local/interop keep their default policy unless
-// overridden. A scope mapped by neither resolves to PolicyHeld.
+// consumer scopes are added and local/shared keep their default policy unless
+// overridden. A scope mapped by neither resolves to PolicyRunAtFinalize.
 func (p *Planner) WithScopePolicy(policy ScopePolicy) *Planner {
 	merged := DefaultScopePolicy()
 	for s, pol := range policy {
@@ -58,17 +58,17 @@ func (p *Planner) WithScopePolicy(policy ScopePolicy) *Planner {
 	return p
 }
 
-// policyFor resolves a scope to its RunPolicy, defaulting to PolicyHeld for a scope
+// policyFor resolves a scope to its RunPolicy, defaulting to PolicyRunAtFinalize for a scope
 // the policy does not map (the conservative choice: never auto-fire at install).
 func (p *Planner) policyFor(s Scope) RunPolicy {
 	if pol, ok := p.policy[s]; ok {
 		return pol
 	}
-	return PolicyHeld
+	return PolicyRunAtFinalize
 }
 
 // Plan returns the migrations whose Version is in the half-open range (from, to]
-// and that still Applies, each marked RunNow (host-local) or held (interop).
+// and that still Applies, each marked RunNow (local) or run-at-finalize (shared).
 // Migrations already satisfied (Applies == false) are omitted, so the plan is
 // idempotent across re-runs.
 func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
@@ -92,15 +92,15 @@ func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
 			step.Reason = fmt.Sprintf("%s: runs now on activation", m.Scope())
 		default:
 			step.RunNow = false
-			step.Reason = fmt.Sprintf("%s: held for finalize", m.Scope())
+			step.Reason = fmt.Sprintf("%s: run at finalize", m.Scope())
 		}
 		plan.Steps = append(plan.Steps, step)
 	}
 	return plan, nil
 }
 
-// Held returns the steps that will not run now (held for finalize).
-func (pl Plan) Held() []Step {
+// RunAtFinalize returns the steps that will not run now (run at finalize).
+func (pl Plan) RunAtFinalize() []Step {
 	var out []Step
 	for _, s := range pl.Steps {
 		if !s.RunNow {

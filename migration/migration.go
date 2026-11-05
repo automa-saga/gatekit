@@ -2,14 +2,14 @@
 // top of the gatekit feature-gate core.
 //
 // Each migration is tied to an activation version and a scope. When an activation
-// version activates, its host-local migrations may run immediately; its interop
-// migrations are held for a coordinated finalize, so a staggered rollout never
+// version activates, its local migrations may run immediately; its shared
+// migrations are run-at-finalize for a coordinated finalize, so a staggered rollout never
 // leaves a mixed-activation fleet. finalize is the one-way line: because migrations
 // may be irreversible, binary rollback is clean only before it.
 //
 // The design is generalized from the migration framework in hashgraph/solo-weaver
 // (internal/migration): a Migration interface, a planner that selects which
-// migrations run now versus are held, and a runner that executes them in order
+// migrations run now versus are run-at-finalize, and a runner that executes them in order
 // with rollback. This scaffold runs migrations with a dependency-light sequential
 // runner; richer ordered execution and reporting via automa-saga/automa is a
 // follow-up.
@@ -19,20 +19,20 @@ import "context"
 
 // Scope is a consumer-defined classification of a migration. gatekit does not fix
 // the set of scopes; a consumer defines as many as it needs and maps each to a
-// RunPolicy via a ScopePolicy (see Planner.WithScopePolicy). HostLocal and Interop
+// RunPolicy via a ScopePolicy (see Planner.WithScopePolicy). Local and Shared
 // are provided only as the keys of the built-in DefaultScopePolicy, not as a closed
 // enum.
 type Scope string
 
 const (
-	// HostLocal migrations affect only the host they run on. In the built-in
+	// Local migrations affect only the host they run on. In the built-in
 	// default policy they run as soon as their activation version activates (e.g. at
 	// install).
-	HostLocal Scope = "host-local"
-	// Interop migrations affect cross-host or network agreement. In the built-in
-	// default policy they are held until a coordinated finalize, to avoid a
+	Local Scope = "local"
+	// Shared migrations affect cross-host or network agreement. In the built-in
+	// default policy they are run-at-finalize until a coordinated finalize, to avoid a
 	// mixed-activation fleet.
-	Interop Scope = "interop"
+	Shared Scope = "shared"
 )
 
 // RunPolicy is the timing a migration step is eligible for, resolved from its
@@ -42,10 +42,10 @@ type RunPolicy string
 const (
 	// PolicyRunNow marks a step eligible to run at install / immediate activation.
 	PolicyRunNow RunPolicy = "run-now"
-	// PolicyHeld marks a step deferred until a deliberate finalize. It is also the
-	// conservative fallback for a scope the policy does not map, since a held step
+	// PolicyRunAtFinalize marks a step deferred until a deliberate finalize. It is also the
+	// conservative fallback for a scope the policy does not map, since a run-at-finalize step
 	// never fires automatically at install.
-	PolicyHeld RunPolicy = "held"
+	PolicyRunAtFinalize RunPolicy = "run-at-finalize"
 )
 
 // ScopePolicy maps a Scope to the RunPolicy that decides its timing. A consumer
@@ -54,10 +54,10 @@ const (
 type ScopePolicy map[Scope]RunPolicy
 
 // DefaultScopePolicy is gatekit's built-in classifier, preserving the original
-// behavior: host-local runs now, interop is held. It is applied when a consumer
+// behavior: local runs now, shared is run-at-finalize. It is applied when a consumer
 // supplies no policy, and underlies any consumer policy (which may override it).
 func DefaultScopePolicy() ScopePolicy {
-	return ScopePolicy{HostLocal: PolicyRunNow, Interop: PolicyHeld}
+	return ScopePolicy{Local: PolicyRunNow, Shared: PolicyRunAtFinalize}
 }
 
 // Migration is a one-time, idempotent transformation tied to an activation version.
@@ -68,7 +68,7 @@ type Migration interface {
 	Description() string
 	// Version is the activation version this migration activates with.
 	Version() int
-	// Scope controls whether it may run at install or is held for finalize.
+	// Scope controls whether it may run at install or is run at finalize.
 	Scope() Scope
 	// Applies reports whether the migration still needs to run by reading ground
 	// truth (not a ledger), so it is safe to re-run.

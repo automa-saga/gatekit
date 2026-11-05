@@ -8,8 +8,8 @@ import (
 )
 
 func TestReportStructured(t *testing.T) {
-	a := &fakeMigration{id: "a", version: 5, scope: HostLocal, applies: true}
-	b := &fakeMigration{id: "b", version: 6, scope: Interop, applies: true}
+	a := &fakeMigration{id: "a", version: 5, scope: Local, applies: true}
+	b := &fakeMigration{id: "b", version: 6, scope: Shared, applies: true}
 	plan, _ := NewPlanner(a, b).Plan(context.Background(), 4, 6)
 
 	rep := plan.Report()
@@ -19,32 +19,32 @@ func TestReportStructured(t *testing.T) {
 	if len(rep.RunNow) != 1 || rep.RunNow[0].ID != "a" {
 		t.Fatalf("RunNow = %+v, want [a]", rep.RunNow)
 	}
-	if rep.RunNow[0].Scope != HostLocal || !rep.RunNow[0].RunNow {
-		t.Errorf("run-now step = %+v, want host-local RunNow=true", rep.RunNow[0])
+	if rep.RunNow[0].Scope != Local || !rep.RunNow[0].RunNow {
+		t.Errorf("run-now step = %+v, want local RunNow=true", rep.RunNow[0])
 	}
 	if rep.RunNow[0].Reason == "" || rep.RunNow[0].Description != "a" {
 		t.Errorf("run-now step missing reason/description: %+v", rep.RunNow[0])
 	}
-	if len(rep.Held) != 1 || rep.Held[0].ID != "b" {
-		t.Fatalf("Held = %+v, want [b]", rep.Held)
+	if len(rep.RunAtFinalize) != 1 || rep.RunAtFinalize[0].ID != "b" {
+		t.Fatalf("RunAtFinalize = %+v, want [b]", rep.RunAtFinalize)
 	}
-	if rep.Held[0].Scope != Interop || rep.Held[0].RunNow {
-		t.Errorf("held step = %+v, want interop RunNow=false", rep.Held[0])
+	if rep.RunAtFinalize[0].Scope != Shared || rep.RunAtFinalize[0].RunNow {
+		t.Errorf("run-at-finalize step = %+v, want shared RunNow=false", rep.RunAtFinalize[0])
 	}
 }
 
 func TestReportText(t *testing.T) {
-	a := &fakeMigration{id: "a", version: 5, scope: HostLocal, applies: true}
-	b := &fakeMigration{id: "b", version: 6, scope: Interop, applies: true}
+	a := &fakeMigration{id: "a", version: 5, scope: Local, applies: true}
+	b := &fakeMigration{id: "b", version: 6, scope: Shared, applies: true}
 	plan, _ := NewPlanner(a, b).Plan(context.Background(), 4, 6)
 
 	text := plan.Report().String()
 	for _, want := range []string{
 		"Plan: activation 4 -> 6",
-		"Run now (host-local)",
-		"- a [host-local] a",
-		"Held for finalize (interop)",
-		"- b [interop] b",
+		"Run now (local)",
+		"- a [local] a",
+		"Run at finalize (shared)",
+		"- b [shared] b",
 		"reason:",
 	} {
 		if !strings.Contains(text, want) {
@@ -56,7 +56,7 @@ func TestReportText(t *testing.T) {
 func TestReportEmptyPlan(t *testing.T) {
 	plan, _ := NewPlanner().Plan(context.Background(), 5, 5)
 	rep := plan.Report()
-	if len(rep.RunNow) != 0 || len(rep.Held) != 0 {
+	if len(rep.RunNow) != 0 || len(rep.RunAtFinalize) != 0 {
 		t.Fatalf("empty plan report has steps: %+v", rep)
 	}
 	text := rep.String()
@@ -66,17 +66,17 @@ func TestReportEmptyPlan(t *testing.T) {
 }
 
 func TestReportOnlyHeldGroup(t *testing.T) {
-	b := &fakeMigration{id: "b", version: 6, scope: Interop, applies: true}
+	b := &fakeMigration{id: "b", version: 6, scope: Shared, applies: true}
 	plan, _ := NewPlanner(b).Plan(context.Background(), 5, 6)
 	text := plan.Report().String()
-	if !strings.Contains(text, "Run now (host-local)") || !strings.Contains(text, "(none)") {
+	if !strings.Contains(text, "Run now (local)") || !strings.Contains(text, "(none)") {
 		t.Errorf("want run-now group rendered as (none):\n%s", text)
 	}
 }
 
 func TestReportJSONRoundTrip(t *testing.T) {
-	a := &fakeMigration{id: "a", version: 5, scope: HostLocal, applies: true}
-	b := &fakeMigration{id: "b", version: 6, scope: Interop, applies: true}
+	a := &fakeMigration{id: "a", version: 5, scope: Local, applies: true}
+	b := &fakeMigration{id: "b", version: 6, scope: Shared, applies: true}
 	plan, _ := NewPlanner(a, b).Plan(context.Background(), 4, 6)
 
 	data, err := json.Marshal(plan.Report())
@@ -87,10 +87,10 @@ func TestReportJSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(data, &back); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if back.From != 4 || back.To != 6 || len(back.RunNow) != 1 || len(back.Held) != 1 {
+	if back.From != 4 || back.To != 6 || len(back.RunNow) != 1 || len(back.RunAtFinalize) != 1 {
 		t.Errorf("round-tripped report = %+v", back)
 	}
-	if back.RunNow[0].ID != "a" || back.Held[0].ID != "b" {
+	if back.RunNow[0].ID != "a" || back.RunAtFinalize[0].ID != "b" {
 		t.Errorf("round-tripped ids wrong: %+v", back)
 	}
 }

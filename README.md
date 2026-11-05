@@ -138,15 +138,15 @@ still wins per feature.
 ## Migration / activation
 
 The `migration` package ties one-time, idempotent migrations to activation
-versions. **Host-local** migrations may run as soon as their version activates;
-**interop** migrations are held for a coordinated `finalize`, so a staggered
+versions. **Local** migrations may run as soon as their version activates;
+**shared** migrations are deferred to a coordinated `finalize`, so a staggered
 rollout never leaves a mixed-activation fleet. `finalize` advances the active
 version — the one-way line, since migrations may be irreversible.
 
 ```go
 plan, err := migration.NewPlanner(migs...).Plan(ctx, store.Current(), target)
-// plan.RunNow() — host-local, run at install
-// plan.Held()   — interop, run at finalize
+// plan.RunNow()        — local, run at install
+// plan.RunAtFinalize() — shared, run at finalize
 
 runner := migration.NewRunner()
 _ = runner.RunNow(ctx, plan)          // at install
@@ -157,8 +157,10 @@ _ = runner.Finalize(ctx, plan, store) // during a controlled window
 
 gatekit's behavior is defined by a language-neutral specification in
 [automa-saga/gatekit-spec](https://github.com/automa-saga/gatekit-spec), vendored
-here as a git submodule at [`docs/spec`](docs/spec). This Go package is the **first
-conformant implementation**; where the code and the spec disagree, the spec wins.
+here as a git submodule at [`docs/spec`](docs/spec) pinned to a **tagged
+gatekit-spec release** (this version conforms to gatekit-spec `v0.2.0`). This Go
+package is the **first conformant implementation**; where the code and the spec
+disagree, the spec wins.
 
 The conformance runner (`conformance_test.go`) executes the spec's shared fixtures
 against this implementation. After cloning, fetch the submodule:
