@@ -25,11 +25,11 @@ func sameIDs(a, b []string) bool {
 	return true
 }
 
-// TestDefaultPolicyBackCompat: with no WithScopePolicy, host-local runs now and
-// interop is held (unchanged behavior).
+// TestDefaultPolicyBackCompat: with no WithScopePolicy, local runs now and
+// shared is run-at-finalize (unchanged behavior).
 func TestDefaultPolicyBackCompat(t *testing.T) {
-	a := &fakeMigration{id: "a", version: 5, scope: HostLocal, applies: true}
-	b := &fakeMigration{id: "b", version: 6, scope: Interop, applies: true}
+	a := &fakeMigration{id: "a", version: 5, scope: Local, applies: true}
+	b := &fakeMigration{id: "b", version: 6, scope: Shared, applies: true}
 	plan, err := NewPlanner(a, b).Plan(context.Background(), 4, 6)
 	if err != nil {
 		t.Fatalf("Plan() error: %v", err)
@@ -37,13 +37,13 @@ func TestDefaultPolicyBackCompat(t *testing.T) {
 	if got := planIDs(plan.RunNow()); !sameIDs(got, []string{"a"}) {
 		t.Errorf("RunNow = %v, want [a]", got)
 	}
-	if got := planIDs(plan.Held()); !sameIDs(got, []string{"b"}) {
-		t.Errorf("Held = %v, want [b]", got)
+	if got := planIDs(plan.RunAtFinalize()); !sameIDs(got, []string{"b"}) {
+		t.Errorf("RunAtFinalize = %v, want [b]", got)
 	}
 }
 
 // TestCustomThreeScopePolicy: a consumer defines three scopes mapped to policies,
-// and an unmapped scope falls back to held.
+// and an unmapped scope falls back to run-at-finalize.
 func TestCustomThreeScopePolicy(t *testing.T) {
 	const (
 		filesystem Scope = "filesystem"
@@ -59,7 +59,7 @@ func TestCustomThreeScopePolicy(t *testing.T) {
 	planner := NewPlanner(fs, host, clu, unk).WithScopePolicy(ScopePolicy{
 		filesystem: PolicyRunNow,
 		hostSystem: PolicyRunNow,
-		cluster:    PolicyHeld,
+		cluster:    PolicyRunAtFinalize,
 	})
 	plan, err := planner.Plan(context.Background(), 4, 6)
 	if err != nil {
@@ -68,32 +68,32 @@ func TestCustomThreeScopePolicy(t *testing.T) {
 	if got := planIDs(plan.RunNow()); !sameIDs(got, []string{"fs", "host"}) {
 		t.Errorf("RunNow = %v, want [fs host]", got)
 	}
-	if got := planIDs(plan.Held()); !sameIDs(got, []string{"clu", "unk"}) {
-		t.Errorf("Held = %v, want [clu unk] (unmapped scope must fall back to held)", got)
+	if got := planIDs(plan.RunAtFinalize()); !sameIDs(got, []string{"clu", "unk"}) {
+		t.Errorf("RunAtFinalize = %v, want [clu unk] (unmapped scope must fall back to run-at-finalize)", got)
 	}
 }
 
 // TestScopePolicyOverridesDefault: a consumer may override the built-in mapping for
 // a standard scope.
 func TestScopePolicyOverridesDefault(t *testing.T) {
-	a := &fakeMigration{id: "a", version: 5, scope: Interop, applies: true}
-	planner := NewPlanner(a).WithScopePolicy(ScopePolicy{Interop: PolicyRunNow})
+	a := &fakeMigration{id: "a", version: 5, scope: Shared, applies: true}
+	planner := NewPlanner(a).WithScopePolicy(ScopePolicy{Shared: PolicyRunNow})
 	plan, err := planner.Plan(context.Background(), 4, 5)
 	if err != nil {
 		t.Fatalf("Plan() error: %v", err)
 	}
 	if got := planIDs(plan.RunNow()); !sameIDs(got, []string{"a"}) {
-		t.Errorf("RunNow = %v, want [a] (interop overridden to run-now)", got)
+		t.Errorf("RunNow = %v, want [a] (shared overridden to run-now)", got)
 	}
-	if len(plan.Held()) != 0 {
-		t.Errorf("Held = %v, want empty", planIDs(plan.Held()))
+	if len(plan.RunAtFinalize()) != 0 {
+		t.Errorf("RunAtFinalize = %v, want empty", planIDs(plan.RunAtFinalize()))
 	}
 }
 
 // TestScopePolicyKeepsDefaultsWhenMerged: a consumer policy that only names custom
-// scopes still resolves host-local/interop via the merged-in default.
+// scopes still resolves local/shared via the merged-in default.
 func TestScopePolicyKeepsDefaultsWhenMerged(t *testing.T) {
-	a := &fakeMigration{id: "a", version: 5, scope: HostLocal, applies: true}
+	a := &fakeMigration{id: "a", version: 5, scope: Local, applies: true}
 	b := &fakeMigration{id: "b", version: 6, scope: "custom", applies: true}
 	planner := NewPlanner(a, b).WithScopePolicy(ScopePolicy{"custom": PolicyRunNow})
 	plan, err := planner.Plan(context.Background(), 4, 6)
@@ -101,6 +101,6 @@ func TestScopePolicyKeepsDefaultsWhenMerged(t *testing.T) {
 		t.Fatalf("Plan() error: %v", err)
 	}
 	if got := planIDs(plan.RunNow()); !sameIDs(got, []string{"a", "b"}) {
-		t.Errorf("RunNow = %v, want [a b] (host-local default retained)", got)
+		t.Errorf("RunNow = %v, want [a b] (local default retained)", got)
 	}
 }

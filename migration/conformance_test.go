@@ -26,7 +26,7 @@ type planningFixture struct {
 	From   int      `json:"from"`
 	To     int      `json:"to"`
 	RunNow []string `json:"runNow"`
-	Held   []string `json:"held"`
+	RunAtFinalize   []string `json:"runAtFinalize"`
 }
 
 // TestConformancePlanning runs the language-neutral planning fixtures from
@@ -73,8 +73,8 @@ func TestConformancePlanning(t *testing.T) {
 		if got := stepIDs(plan.RunNow()); !equalStrings(got, fx.RunNow) {
 			t.Errorf("%s: runNow = %v, want %v", fx.Name, got, fx.RunNow)
 		}
-		if got := stepIDs(plan.Held()); !equalStrings(got, fx.Held) {
-			t.Errorf("%s: held = %v, want %v", fx.Name, got, fx.Held)
+		if got := stepIDs(plan.RunAtFinalize()); !equalStrings(got, fx.RunAtFinalize) {
+			t.Errorf("%s: run-at-finalize = %v, want %v", fx.Name, got, fx.RunAtFinalize)
 		}
 	}
 }

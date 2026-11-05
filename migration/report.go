@@ -16,14 +16,14 @@ type StepReport struct {
 }
 
 // PlanReport is the structured, machine-renderable preview of a Plan: a from→to
-// activation step with its steps split into those that run now (host-local) and
-// those held for a coordinated finalize (interop). It marshals to JSON directly
+// activation step with its steps split into those that run now (local) and
+// those run-at-finalize for a coordinated finalize (shared). It marshals to JSON directly
 // and renders to text via String.
 type PlanReport struct {
 	From   int          `json:"from"`
 	To     int          `json:"to"`
 	RunNow []StepReport `json:"runNow"`
-	Held   []StepReport `json:"held"`
+	RunAtFinalize   []StepReport `json:"runAtFinalize"`
 }
 
 // Report renders a Plan as a structured PlanReport for machine output (e.g. JSON)
@@ -42,23 +42,23 @@ func (pl Plan) Report() PlanReport {
 		if s.RunNow {
 			rep.RunNow = append(rep.RunNow, sr)
 		} else {
-			rep.Held = append(rep.Held, sr)
+			rep.RunAtFinalize = append(rep.RunAtFinalize, sr)
 		}
 	}
 	return rep
 }
 
 // String renders the report as a human-readable --plan / --dry-run summary,
-// grouping run-now and held steps. An empty plan renders as "(nothing to do)".
+// grouping run-now and run-at-finalize steps. An empty plan renders as "(nothing to do)".
 func (r PlanReport) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Plan: activation %d -> %d\n", r.From, r.To)
-	if len(r.RunNow) == 0 && len(r.Held) == 0 {
+	if len(r.RunNow) == 0 && len(r.RunAtFinalize) == 0 {
 		b.WriteString("  (nothing to do)\n")
 		return b.String()
 	}
-	writeGroup(&b, "Run now (host-local)", r.RunNow)
-	writeGroup(&b, "Held for finalize (interop)", r.Held)
+	writeGroup(&b, "Run now (local)", r.RunNow)
+	writeGroup(&b, "Run at finalize (shared)", r.RunAtFinalize)
 	return b.String()
 }
 

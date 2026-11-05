@@ -12,15 +12,15 @@ import (
 // sites — and the automa dependency never enters a plain gatekit consumer's module
 // graph.
 type Runner interface {
-	// RunNow executes the plan's run-now (host-local) steps in plan order. On the
+	// RunNow executes the plan's run-now (local) steps in plan order. On the
 	// first failure it rolls back the already-executed steps in reverse order
-	// (best-effort) and returns the error. Held steps are ignored here; they run at
+	// (best-effort) and returns the error. RunAtFinalize steps are ignored here; they run at
 	// Finalize. It MUST NOT advance the active version.
 	RunNow(ctx context.Context, plan Plan) error
-	// Finalize runs the plan's held (interop) steps in plan order, then advances the
+	// Finalize runs the plan's run-at-finalize (shared) steps in plan order, then advances the
 	// active version to plan.To via the Store. On failure it rolls back the executed
-	// held steps and leaves the active version unchanged; the version advances only
-	// when every held step succeeds (the one-way line).
+	// run-at-finalize steps and leaves the active version unchanged; the version advances only
+	// when every run-at-finalize step succeeds (the one-way line).
 	Finalize(ctx context.Context, plan Plan, store Store) error
 }
 
@@ -42,7 +42,7 @@ var _ Runner = (*StdRunner)(nil)
 
 // RunNow executes the plan's run-now steps in order. On the first failure it rolls
 // back the already-executed steps in reverse (best-effort) and returns the error.
-// Held (interop) steps are ignored here; they run at finalize.
+// RunAtFinalize (shared) steps are ignored here; they run at finalize.
 func (r *StdRunner) RunNow(ctx context.Context, plan Plan) error {
 	var done []Migration
 	for _, s := range plan.Steps {
@@ -58,8 +58,8 @@ func (r *StdRunner) RunNow(ctx context.Context, plan Plan) error {
 	return nil
 }
 
-// Finalize runs the held steps of a plan (the interop migrations), then persists
-// the new active version via the Store. It runs the held steps in order, rolling
+// Finalize runs the run-at-finalize steps of a plan (the shared migrations), then persists
+// the new active version via the Store. It runs the run-at-finalize steps in order, rolling
 // back on failure without advancing the version. On success the version is
 // advanced — the one-way line.
 func (r *StdRunner) Finalize(ctx context.Context, plan Plan, store Store) error {
