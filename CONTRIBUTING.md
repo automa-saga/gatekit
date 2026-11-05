@@ -81,9 +81,11 @@ implementation; **where the code and the spec disagree, the spec wins.**
 
 If your change alters observable behavior (feature resolution, the run invariant,
 plan computation), it must also update the relevant spec section and conformance
-fixtures. Spec changes land in the gatekit-spec repository first; then the
-`docs/spec` submodule pointer is bumped here in the same change that implements
-them.
+fixtures. Spec changes land in the gatekit-spec repository first and are cut as a
+**tagged release**; then the `docs/spec` submodule pointer is bumped here — to that
+release tag's commit, never a bare `main` commit — in the same change that
+implements them. gatekit and gatekit-spec version on independent lines (for example
+gatekit v0.4.0 pins gatekit-spec v0.2.0).
 
 ## Commits & sign-off
 
