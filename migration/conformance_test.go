@@ -23,10 +23,10 @@ type planningFixture struct {
 		Scope   string `json:"scope"`
 		Applies bool   `json:"applies"`
 	} `json:"migrations"`
-	From   int      `json:"from"`
-	To     int      `json:"to"`
-	RunNow []string `json:"runNow"`
-	RunAtFinalize   []string `json:"runAtFinalize"`
+	From          int      `json:"from"`
+	To            int      `json:"to"`
+	RunNow        []string `json:"runNow"`
+	RunAtFinalize []string `json:"runAtFinalize"`
 }
 
 // TestConformancePlanning runs the language-neutral planning fixtures from

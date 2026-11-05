@@ -20,10 +20,10 @@ type StepReport struct {
 // those run-at-finalize for a coordinated finalize (shared). It marshals to JSON directly
 // and renders to text via String.
 type PlanReport struct {
-	From   int          `json:"from"`
-	To     int          `json:"to"`
-	RunNow []StepReport `json:"runNow"`
-	RunAtFinalize   []StepReport `json:"runAtFinalize"`
+	From          int          `json:"from"`
+	To            int          `json:"to"`
+	RunNow        []StepReport `json:"runNow"`
+	RunAtFinalize []StepReport `json:"runAtFinalize"`
 }
 
 // Report renders a Plan as a structured PlanReport for machine output (e.g. JSON)
