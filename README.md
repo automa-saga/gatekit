@@ -141,7 +141,7 @@ A gate that is never deleted is a bug. `gatekit.Lint` enforces the contract step
 a version leaves the support window, the specs and code paths it guarded must go.
 
 ```go
-violations, err := gatekit.Lint(registry, gatekit.WithSupportWindow(1))
+violations, err := gatekit.Lint(registry, 1)
 ```
 
 It is a pure function of the registry and the window, so run it from a `go test`.
@@ -161,7 +161,7 @@ test; your normal `go test` CI job then picks it up with no extra tooling:
 ```go
 func TestRegistryLifecycle(t *testing.T) {
 	// Use the same window your binary passes to gatekit.New, because Min depends on it.
-	violations, err := gatekit.Lint(registry, gatekit.WithSupportWindow(1))
+	violations, err := gatekit.Lint(registry, 1)
 	if err != nil {
 		t.Fatal(err) // the registry itself is invalid
 	}

@@ -20,7 +20,7 @@ func ExampleLint() {
 	}
 
 	// Max is 7, so with W=1 Min is 6: SplitCatalog's spec 5 is superseded at 6.
-	violations, err := gatekit.Lint(registry, gatekit.WithSupportWindow(1))
+	violations, err := gatekit.Lint(registry, 1)
 	if err != nil {
 		panic(err)
 	}

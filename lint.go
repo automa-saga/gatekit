@@ -32,15 +32,16 @@ var kindOrder = map[LintKind]int{StaleSpec: 0, PastRemoveBy: 1, DeprecatedDue: 2
 // consumer can run it from a test or CI. Violations are ordered by feature, then
 // kind, then ActiveFrom; a clean registry returns none.
 //
-// Only WithSupportWindow affects the findings. Other options are accepted so the
-// same option list can be shared with New, and are validated (an invalid one, such
-// as an override naming an unknown feature, returns an error) but otherwise ignored.
+// window is the support window W, with the same meaning as WithSupportWindow; pass
+// the value your binary gives New, because Min depends on it. Lint takes it
+// explicitly rather than as an Option, so it never reads the environment or any
+// other process state.
 //
 // Lint validates the registry as New does and returns that error for an invalid
 // one. It does not scan source code: deleting the dead branches a stale spec
 // guarded is the consumer's job.
-func Lint(reg Registry, opts ...Option) ([]Violation, error) {
-	g, err := New(reg, StaticVersion(0), opts...)
+func Lint(reg Registry, window int) ([]Violation, error) {
+	g, err := New(reg, StaticVersion(0), WithSupportWindow(window))
 	if err != nil {
 		return nil, err
 	}

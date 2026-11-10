@@ -52,7 +52,7 @@ func TestConformanceLint(t *testing.T) {
 		for _, v := range fx.Violations {
 			want = append(want, Violation{Feature: Feature(v.Feature), Kind: LintKind(v.Kind), ActiveFrom: v.ActiveFrom})
 		}
-		got, err := Lint(reg, WithSupportWindow(fx.Window))
+		got, err := Lint(reg, fx.Window)
 		if err != nil {
 			t.Fatalf("%s: Lint: %v", fx.Name, err)
 		}
@@ -66,16 +66,16 @@ func TestConformanceLint(t *testing.T) {
 }
 
 func TestLintInvalidRegistry(t *testing.T) {
-	if _, err := Lint(Registry{"A": {}}); err == nil {
+	if _, err := Lint(Registry{"A": {}}, 1); err == nil {
 		t.Fatal("expected an error for a feature with no specs")
 	}
-	if _, err := Lint(Registry{"A": {Specs: VersionedSpecs{{ActiveFrom: 1}}}}, WithSupportWindow(-1)); err == nil {
+	if _, err := Lint(Registry{"A": {Specs: VersionedSpecs{{ActiveFrom: 1}}}}, -1); err == nil {
 		t.Fatal("expected an error for a negative window")
 	}
 }
 
 func TestLintEmptyRegistry(t *testing.T) {
-	got, err := Lint(Registry{})
+	got, err := Lint(Registry{}, 1)
 	if err != nil || len(got) != 0 {
 		t.Fatalf("got %v, %v; want no violations", got, err)
 	}
