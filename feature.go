@@ -45,6 +45,10 @@ type FeatureDef struct {
 	// listings, generated docs, and the plan / dry-run output. It is informational
 	// only: it never affects resolution or the run invariant, and MAY be empty.
 	Description string
+	// RemoveBy is the activation version by which the feature must be deleted: once
+	// the supported floor (Min) reaches it, Lint reports the feature. It is lint
+	// metadata only and never affects resolution. Zero means no removal deadline.
+	RemoveBy Activation
 	// Specs is the feature's lifecycle across activation versions.
 	Specs VersionedSpecs
 }

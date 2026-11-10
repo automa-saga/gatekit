@@ -63,7 +63,7 @@ func New(specs Registry, source VersionSource, opts ...Option) (*FeatureGate, er
 				return nil, fmt.Errorf("gatekit: feature %q has a duplicate activation version %d", f, s.ActiveFrom)
 			}
 		}
-		normalized[f] = FeatureDef{Description: def.Description, Specs: cp}
+		normalized[f] = FeatureDef{Description: def.Description, RemoveBy: def.RemoveBy, Specs: cp}
 	}
 
 	for f := range cfg.overrides {
