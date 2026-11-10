@@ -135,6 +135,54 @@ does not map to any registered feature or its value is not a parseable bool. Opt
 order is last-writer, so an explicit `WithOverrides` passed after `WithEnvOverrides`
 still wins per feature.
 
+### Removal lint
+
+A gate that is never deleted is a bug. `gatekit.Lint` enforces the contract step: when
+a version leaves the support window, the specs and code paths it guarded must go.
+
+```go
+violations, err := gatekit.Lint(registry, gatekit.WithSupportWindow(1))
+```
+
+It is a pure function of the registry and the window, so run it from a `go test`.
+Each `Violation` has a `Kind`:
+
+- `StaleSpec` — a later spec has `ActiveFrom <= Min`, so this spec can never be selected.
+- `PastRemoveBy` — the feature sets `FeatureDef.RemoveBy` and `Min >= RemoveBy`.
+- `DeprecatedDue` — the latest spec is `Deprecated`.
+
+It does not scan source code; deleting the dead branches is up to you.
+
+#### Run it in your CI
+
+gatekit never calls `Lint` itself, so nothing runs unless you add it. Put it in a unit
+test; your normal `go test` CI job then picks it up with no extra tooling:
+
+```go
+func TestRegistryLifecycle(t *testing.T) {
+	// Use the same window your binary passes to gatekit.New, because Min depends on it.
+	violations, err := gatekit.Lint(registry, gatekit.WithSupportWindow(1))
+	if err != nil {
+		t.Fatal(err) // the registry itself is invalid
+	}
+	for _, v := range violations {
+		t.Errorf("%s: %s (spec %d)", v.Feature, v.Kind, v.ActiveFrom)
+	}
+}
+```
+
+Notes:
+
+- **When it fails.** Adding a spec at a higher activation version raises `Max` and
+  therefore `Min`, so specs that fall out of the window start failing. Delete those
+  specs and the code paths they guarded in the same change.
+- **Not at startup.** Lint is about code hygiene, not about the running fleet. Use
+  `gate.Check()` at startup and keep `Lint` in tests.
+- **Deprecated features.** `DeprecatedDue` fires on every run until the feature is
+  deleted. If you only want to enforce the window, skip that kind in the loop.
+- **Dead code.** Lint reports the spec, not the branch. Search for the feature
+  identifier to find what to delete.
+
 ## Migration / activation
 
 The `migration` package ties one-time, idempotent migrations to activation
