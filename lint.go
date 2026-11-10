@@ -20,7 +20,7 @@ type Violation struct {
 	Feature Feature
 	Kind    LintKind
 	// ActiveFrom is the stale spec's activation version. It is meaningful only
-	// for StaleSpec.
+	// for StaleSpec and is zero for the other kinds, so do not print it for them.
 	ActiveFrom Activation
 }
 
@@ -28,9 +28,13 @@ type Violation struct {
 var kindOrder = map[LintKind]int{StaleSpec: 0, PastRemoveBy: 1, DeprecatedDue: 2}
 
 // Lint enforces the contract step (activation-spec §4, core-spec §8). It is a pure
-// function of the registry and the support window (WithSupportWindow): it needs no
-// version source, so a consumer can run it from a test or CI. Violations are
-// ordered by feature, then kind, then ActiveFrom; a clean registry returns none.
+// function of the registry and the support window: it needs no version source, so a
+// consumer can run it from a test or CI. Violations are ordered by feature, then
+// kind, then ActiveFrom; a clean registry returns none.
+//
+// Only WithSupportWindow affects the findings. Other options are accepted so the
+// same option list can be shared with New, and are validated (an invalid one, such
+// as an override naming an unknown feature, returns an error) but otherwise ignored.
 //
 // Lint validates the registry as New does and returns that error for an invalid
 // one. It does not scan source code: deleting the dead branches a stale spec
