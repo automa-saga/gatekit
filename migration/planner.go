@@ -93,8 +93,20 @@ func (p *Planner) policyFor(s Scope) RunPolicy {
 // and that still Applies, each marked RunNow (local) or run-at-finalize (shared).
 // Migrations already satisfied (Applies == false) are omitted, so the plan is
 // idempotent across re-runs.
+//
+// It validates its inputs first and returns, in order: *InvalidMinError when a negative
+// min was set, *InvalidRangeError when (from, to) are not non-negative with from <= to,
+// *InvalidReadableFromError when a planned migration declares a negative ReadableFrom, and
+// *UnenforcedFloorError when a planned migration declares a floor but no min was set.
 func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
+	if p.minSet && p.min < 0 {
+		return Plan{}, &InvalidMinError{Min: p.min}
+	}
+	if from < 0 || to < 0 || to < from {
+		return Plan{}, &InvalidRangeError{From: from, To: to}
+	}
 	plan := Plan{From: from, To: to, Min: p.min}
+	var unenforced []string
 	for _, m := range p.migrations {
 		v := m.Version()
 		if v <= from || v > to {
@@ -108,7 +120,13 @@ func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
 			continue
 		}
 		step := Step{Migration: m, Reversible: IsReversible(m), ReadableFrom: ReadableFromOf(m)}
+		if step.ReadableFrom < 0 {
+			return Plan{}, &InvalidReadableFromError{Step: m.ID(), ReadableFrom: step.ReadableFrom}
+		}
 		step.Blocked = p.minSet && step.ReadableFrom > p.min
+		if !p.minSet && step.ReadableFrom > 0 {
+			unenforced = append(unenforced, m.ID())
+		}
 		switch p.policyFor(m.Scope()) {
 		case PolicyRunNow:
 			step.RunNow = true
@@ -118,6 +136,11 @@ func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
 			step.Reason = fmt.Sprintf("%s: run at finalize", m.Scope())
 		}
 		plan.Steps = append(plan.Steps, step)
+	}
+	// A declared write floor with no min set would be silently ignored: refuse the plan so
+	// the misconfiguration surfaces at planning time rather than as an unsafe run.
+	if len(unenforced) > 0 {
+		return Plan{}, &UnenforcedFloorError{Steps: unenforced}
 	}
 	return plan, nil
 }

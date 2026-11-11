@@ -219,7 +219,11 @@ answer, so existing migrations keep working.
 rolling back to (the min-compat version). A step is `Blocked` when its
 `ReadableFrom` is above `min`, because running it would leave data that version
 `min` cannot read. `RunNow` and `Finalize` check this first and run nothing if
-any step is blocked. Without `WithMin` the floor is not enforced.
+any step is blocked. If a migration in range declares a `ReadableFrom` above `0`
+but you never call `WithMin`, the floor would be silently ignored, so `Plan`
+refuses with an `*UnenforcedFloorError` — set the min, or drop `ReadableFrom` if
+the data really is readable by every version. Migrations that declare no floor
+need no `WithMin`.
 
 This is why a format change is split into expand and contract: a change that old
 versions cannot read cannot finalize in the release that introduces it. You ship

@@ -175,14 +175,91 @@ func TestIsReversibleDefaultsToFalse(t *testing.T) {
 	}
 }
 
-func TestFloorOffWithoutMin(t *testing.T) {
+func TestUnenforcedFloorWithoutMinErrors(t *testing.T) {
+	// A declared write floor with no min set would be silently ignored, so Plan refuses it.
 	m := &declMigration{fakeMigration: fakeMigration{id: "a", version: 6, scope: Shared, applies: true}, readableFrom: 6}
+	_, err := NewPlanner(m).Plan(context.Background(), 5, 6)
+	var uf *UnenforcedFloorError
+	if !errors.As(err, &uf) || !reflect.DeepEqual(uf.Steps, []string{"a"}) {
+		t.Fatalf("Plan with ReadableFrom but no min = %v, want *UnenforcedFloorError{Steps:[a]}", err)
+	}
+}
+
+func TestNoFloorDeclaredWithoutMinIsFine(t *testing.T) {
+	// The opt-out path: no migration declares a floor, so no min is needed.
+	m := &declMigration{fakeMigration: fakeMigration{id: "a", version: 6, scope: Shared, applies: true}}
 	plan, err := NewPlanner(m).Plan(context.Background(), 5, 6)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if plan.Steps[0].Blocked {
-		t.Fatal("no step may be blocked when no min is set")
+		t.Fatal("no step may be blocked when no floor is declared")
+	}
+}
+
+func TestExplicitZeroMinEnforcesFloor(t *testing.T) {
+	// WithMin(0) is a real floor (min genuinely 0), not the unset case: a ReadableFrom
+	// above 0 is blocked, never reported as a misconfiguration.
+	m := &declMigration{fakeMigration: fakeMigration{id: "a", version: 6, scope: Shared, applies: true}, readableFrom: 6}
+	plan, err := NewPlanner(m).WithMin(0).Plan(context.Background(), 5, 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Steps[0].Blocked {
+		t.Fatal("ReadableFrom above an explicit min(0) must be blocked")
+	}
+}
+
+func TestNegativeMinIsRejected(t *testing.T) {
+	// Activation versions are non-negative, so a negative min is a misconfiguration;
+	// both Plan and PlanLower refuse it rather than silently block every step.
+	m := &declMigration{fakeMigration: fakeMigration{id: "a", version: 6, scope: Shared, applies: true}}
+
+	_, err := NewPlanner(m).WithMin(-1).Plan(context.Background(), 5, 6)
+	var im *InvalidMinError
+	if !errors.As(err, &im) || im.Min != -1 {
+		t.Fatalf("Plan with min=-1 = %v, want *InvalidMinError{Min:-1}", err)
+	}
+
+	_, err = NewPlanner(m).PlanLower(6, 4, -99)
+	if !errors.As(err, &im) || im.Min != -99 {
+		t.Fatalf("PlanLower with min=-99 = %v, want *InvalidMinError{Min:-99}", err)
+	}
+}
+
+func TestPlanLowerRejectsNonLoweringRange(t *testing.T) {
+	// Lowering must strictly decrease a non-negative version; otherwise Lower would move
+	// the active version the wrong way (or nowhere) on an empty plan.
+	m := &declMigration{fakeMigration: fakeMigration{id: "a", version: 6, scope: Shared, applies: true}}
+	p := NewPlanner(m)
+	var re *InvalidRangeError
+	for _, c := range []struct {
+		name          string
+		from, to, min int
+	}{
+		{"to>from raises active", 4, 6, 0},
+		{"to==from is a no-op", 6, 6, 0},
+		{"negative to", 6, -1, 0},
+	} {
+		if _, err := p.PlanLower(c.from, c.to, c.min); !errors.As(err, &re) {
+			t.Fatalf("%s: PlanLower(%d,%d,%d) = %v, want *InvalidRangeError", c.name, c.from, c.to, c.min, err)
+		}
+	}
+}
+
+func TestPlanRejectsReversedRangeAndNegativeReadableFrom(t *testing.T) {
+	// to < from would let Finalize lower the active version without a rollback.
+	m := &declMigration{fakeMigration: fakeMigration{id: "a", version: 6, scope: Shared, applies: true}}
+	var re *InvalidRangeError
+	if _, err := NewPlanner(m).Plan(context.Background(), 6, 4); !errors.As(err, &re) {
+		t.Fatalf("Plan(6,4) = %v, want *InvalidRangeError", err)
+	}
+
+	// A negative ReadableFrom would slip past both > 0 and > min, disabling the floor.
+	bad := &declMigration{fakeMigration: fakeMigration{id: "bad", version: 6, scope: Shared, applies: true}, readableFrom: -1}
+	var rf *InvalidReadableFromError
+	if _, err := NewPlanner(bad).Plan(context.Background(), 5, 6); !errors.As(err, &rf) || rf.Step != "bad" {
+		t.Fatalf("Plan with negative readableFrom = %v, want *InvalidReadableFromError{Step:bad}", err)
 	}
 }
 
