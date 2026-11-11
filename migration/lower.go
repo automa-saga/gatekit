@@ -105,21 +105,9 @@ func (p *Planner) PlanLower(from, to, min int) (LowerPlan, error) {
 	return LowerPlan{From: from, To: to, Steps: steps}, nil
 }
 
-// Lowerer executes a LowerPlan. It is separate from Runner so existing Runner
-// implementations keep compiling; StdRunner implements both.
-type Lowerer interface {
-	// Lower runs Rollback for each step in plan order, then lowers the active version to
-	// plan.To via the Store. On the first failure it stops, returns the error, and leaves
-	// the active version unchanged; because Rollback is idempotent, running Lower again is
-	// the recovery.
-	Lower(ctx context.Context, plan LowerPlan, store Store) error
-}
-
-// StdRunner satisfies Lowerer.
-var _ Lowerer = (*StdRunner)(nil)
-
 // Lower runs the reverse plan's Rollbacks in order and then lowers the active version,
-// the mirror of Finalize: data first, active last.
+// the mirror of Finalize: data first, active last. It is part of the Runner contract
+// (see runner.go); StdRunner is the dependency-free implementation.
 func (r *StdRunner) Lower(ctx context.Context, plan LowerPlan, store Store) error {
 	for _, m := range plan.Steps {
 		if err := m.Rollback(ctx); err != nil {

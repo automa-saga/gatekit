@@ -24,6 +24,12 @@ type Runner interface {
 	// run-at-finalize steps and leaves the active version unchanged; the version advances only
 	// when every run-at-finalize step succeeds (the one-way line).
 	Finalize(ctx context.Context, plan Plan, store Store) error
+	// Lower runs Rollback for each step of a LowerPlan in plan order, then lowers the
+	// active version to plan.To via the Store — the mirror of Finalize: data first,
+	// active last. On the first failure it stops, returns the error, and leaves the
+	// active version unchanged; because Rollback is idempotent, running Lower again is
+	// the recovery. A durable Runner MUST make Lower crash-resumable, as it does Finalize.
+	Lower(ctx context.Context, plan LowerPlan, store Store) error
 }
 
 // StdRunner is the dependency-free, sequential Runner: it executes steps in plan
