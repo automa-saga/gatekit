@@ -14,6 +14,13 @@ type Step struct {
 	RunNow bool
 	// Reason explains the RunNow decision, for the --plan / --dry-run preview.
 	Reason string
+	// Reversible is whether the migration declares itself reversible (see Reversible).
+	Reversible bool
+	// ReadableFrom is the oldest version able to read the migration's output.
+	ReadableFrom int
+	// Blocked is true when the write floor forbids running the step: ReadableFrom is
+	// above the planner's min (see Planner.WithMin). It is always false when no min is set.
+	Blocked bool
 }
 
 // Plan is the ordered set of migration steps to move from one activation version to
@@ -22,6 +29,9 @@ type Plan struct {
 	From  int
 	To    int
 	Steps []Step
+	// Min is the planner's min (see Planner.WithMin), carried so a Runner can report
+	// it in a write-floor error. It is meaningful only when a min was set.
+	Min int
 }
 
 // Planner selects and orders the migrations that apply between two versions, and
@@ -29,6 +39,8 @@ type Plan struct {
 type Planner struct {
 	migrations []Migration
 	policy     ScopePolicy
+	min        int
+	minSet     bool
 }
 
 // NewPlanner returns a Planner over the given migrations, ordered by Version then
@@ -58,6 +70,16 @@ func (p *Planner) WithScopePolicy(policy ScopePolicy) *Planner {
 	return p
 }
 
+// WithMin sets min, the oldest activation version this binary supports (for example
+// gate.EffectiveVersion().Min), and returns the Planner for chaining. It turns on the
+// write floor: a planned step is Blocked when its migration's ReadableFrom is above min
+// (activation-spec §7). Without WithMin no step is ever blocked, so a consumer that
+// wants the floor enforced MUST set it.
+func (p *Planner) WithMin(min int) *Planner {
+	p.min, p.minSet = min, true
+	return p
+}
+
 // policyFor resolves a scope to its RunPolicy, defaulting to PolicyRunAtFinalize for a scope
 // the policy does not map (the conservative choice: never auto-fire at install).
 func (p *Planner) policyFor(s Scope) RunPolicy {
@@ -72,7 +94,7 @@ func (p *Planner) policyFor(s Scope) RunPolicy {
 // Migrations already satisfied (Applies == false) are omitted, so the plan is
 // idempotent across re-runs.
 func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
-	plan := Plan{From: from, To: to}
+	plan := Plan{From: from, To: to, Min: p.min}
 	for _, m := range p.migrations {
 		v := m.Version()
 		if v <= from || v > to {
@@ -85,7 +107,8 @@ func (p *Planner) Plan(ctx context.Context, from, to int) (Plan, error) {
 		if !applies {
 			continue
 		}
-		step := Step{Migration: m}
+		step := Step{Migration: m, Reversible: IsReversible(m), ReadableFrom: ReadableFromOf(m)}
+		step.Blocked = p.minSet && step.ReadableFrom > p.min
 		switch p.policyFor(m.Scope()) {
 		case PolicyRunNow:
 			step.RunNow = true

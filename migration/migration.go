@@ -76,8 +76,40 @@ type Migration interface {
 	// Execute performs the forward transformation.
 	Execute(ctx context.Context) error
 	// Rollback reverses Execute on a best-effort basis when a later step fails
-	// before finalize.
+	// before finalize, and, for a migration that declares itself Reversible, when
+	// lowering the active version. It MUST be idempotent.
 	Rollback(ctx context.Context) error
+}
+
+// Reversible is an optional interface a Migration implements to declare that
+// Rollback fully and safely undoes Execute (migration-spec §1). A migration that does
+// not implement it, or returns false, is irreversible: gatekit never infers
+// reversibility from the mere presence of Rollback.
+type Reversible interface {
+	Reversible() bool
+}
+
+// Readable is an optional interface a Migration implements to declare the write
+// floor (activation-spec §7): ReadableFrom is the oldest activation version able to
+// read what Execute writes. A migration that does not implement it is readable by
+// every version (0).
+type Readable interface {
+	ReadableFrom() int
+}
+
+// IsReversible reports whether m declares itself reversible. The default is false.
+func IsReversible(m Migration) bool {
+	r, ok := m.(Reversible)
+	return ok && r.Reversible()
+}
+
+// ReadableFromOf returns the oldest version able to read m's output, or 0 when m does
+// not declare one.
+func ReadableFromOf(m Migration) int {
+	if r, ok := m.(Readable); ok {
+		return r.ReadableFrom()
+	}
+	return 0
 }
 
 // Store persists and reports the currently-active activation version. A consumer
@@ -87,6 +119,8 @@ type Migration interface {
 type Store interface {
 	// Current returns the currently-active activation version.
 	Current() int
-	// SetActive persists a new active activation version (the finalize step).
+	// SetActive persists a new active activation version: Finalize raises it and
+	// Lower lowers it. A store SHOULD refuse any other change that lowers it
+	// (activation-spec §6).
 	SetActive(version int) error
 }

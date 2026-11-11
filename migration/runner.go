@@ -12,12 +12,14 @@ import (
 // sites — and the automa dependency never enters a plain gatekit consumer's module
 // graph.
 type Runner interface {
-	// RunNow executes the plan's run-now (local) steps in plan order. On the
+	// RunNow executes the plan's run-now (local) steps in plan order. It MUST first
+	// call plan.CheckWriteFloor(true) and refuse, executing nothing, on error. On the
 	// first failure it rolls back the already-executed steps in reverse order
 	// (best-effort) and returns the error. RunAtFinalize steps are ignored here; they run at
 	// Finalize. It MUST NOT advance the active version.
 	RunNow(ctx context.Context, plan Plan) error
-	// Finalize runs the plan's run-at-finalize (shared) steps in plan order, then advances the
+	// Finalize MUST first call plan.CheckWriteFloor(false) and refuse, executing
+	// nothing, on error. It runs the plan's run-at-finalize (shared) steps in plan order, then advances the
 	// active version to plan.To via the Store. On failure it rolls back the executed
 	// run-at-finalize steps and leaves the active version unchanged; the version advances only
 	// when every run-at-finalize step succeeds (the one-way line).
@@ -44,6 +46,9 @@ var _ Runner = (*StdRunner)(nil)
 // back the already-executed steps in reverse (best-effort) and returns the error.
 // RunAtFinalize (shared) steps are ignored here; they run at finalize.
 func (r *StdRunner) RunNow(ctx context.Context, plan Plan) error {
+	if err := plan.CheckWriteFloor(true); err != nil {
+		return err
+	}
 	var done []Migration
 	for _, s := range plan.Steps {
 		if !s.RunNow {
@@ -63,6 +68,9 @@ func (r *StdRunner) RunNow(ctx context.Context, plan Plan) error {
 // back on failure without advancing the version. On success the version is
 // advanced — the one-way line.
 func (r *StdRunner) Finalize(ctx context.Context, plan Plan, store Store) error {
+	if err := plan.CheckWriteFloor(false); err != nil {
+		return err
+	}
 	var done []Migration
 	for _, s := range plan.Steps {
 		if s.RunNow {
