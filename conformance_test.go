@@ -160,3 +160,73 @@ func invariantSpecs(first, max int) VersionedSpecs {
 	}
 	return VersionedSpecs{{ActiveFrom: Activation(first)}, {ActiveFrom: Activation(max)}}
 }
+
+// registryFromJSON builds a Registry from the fixture's JSON feature map.
+func registryFromJSON(m map[string]featureDefJSON) Registry {
+	reg := Registry{}
+	for f, def := range m {
+		vs := make(VersionedSpecs, 0, len(def.Specs))
+		for _, s := range def.Specs {
+			vs = append(vs, FeatureSpec{ActiveFrom: s.ActiveFrom, Default: s.Default, Maturity: Maturity(s.Maturity)})
+		}
+		reg[Feature(f)] = FeatureDef{Description: def.Description, Specs: vs}
+	}
+	return reg
+}
+
+type baselineFixture struct {
+	Name     string `json:"name"`
+	Baseline struct {
+		Registry map[string]featureDefJSON `json:"registry"`
+	} `json:"baseline"`
+	Current struct {
+		Registry map[string]featureDefJSON `json:"registry"`
+	} `json:"current"`
+	Violations []struct {
+		Kind       string     `json:"kind"`
+		Feature    string     `json:"feature"`
+		ActiveFrom Activation `json:"activeFrom"`
+	} `json:"violations"`
+}
+
+// TestConformanceBaseline runs the language-neutral baseline-lint fixtures from
+// gatekit-spec (activation-spec §10) against this implementation. It skips when the spec
+// submodule is not checked out.
+func TestConformanceBaseline(t *testing.T) {
+	if _, err := os.Stat(conformanceDir); os.IsNotExist(err) {
+		t.Skip("gatekit-spec submodule not checked out; run: git submodule update --init")
+	}
+
+	files, err := filepath.Glob(filepath.Join(conformanceDir, "baseline", "*.json"))
+	if err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+	if len(files) == 0 {
+		t.Skip("no baseline fixtures found")
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+		var fx baselineFixture
+		if err := json.Unmarshal(data, &fx); err != nil {
+			t.Fatalf("parse %s: %v", file, err)
+		}
+
+		got, err := Baseline(registryFromJSON(fx.Current.Registry), registryFromJSON(fx.Baseline.Registry))
+		if err != nil {
+			t.Fatalf("%s: Baseline() error: %v", fx.Name, err)
+		}
+		if len(got) != len(fx.Violations) {
+			t.Fatalf("%s: got %d violations %+v, want %d", fx.Name, len(got), got, len(fx.Violations))
+		}
+		for i, w := range fx.Violations {
+			if string(got[i].Kind) != w.Kind || string(got[i].Feature) != w.Feature || got[i].ActiveFrom != w.ActiveFrom {
+				t.Errorf("%s: violation %d = {kind:%s feature:%q activeFrom:%d}, want {kind:%s feature:%q activeFrom:%d}",
+					fx.Name, i, got[i].Kind, got[i].Feature, got[i].ActiveFrom, w.Kind, w.Feature, w.ActiveFrom)
+			}
+		}
+	}
+}

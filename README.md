@@ -187,6 +187,81 @@ Notes:
 - **Dead code.** Lint reports the spec, not the branch. Search for the feature
   identifier to find what to delete.
 
+### Baseline lint
+
+The increment rule — the activation version rises by at most +1 per release, and a
+released spec is never rewritten — is **relative to the previous release**, so a single
+registry cannot reveal a violation. A spec at `ActiveFrom: 11` is valid on its own; what
+makes it wrong is that the last release was at 5. `gatekit.Baseline` catches it at review
+time by comparing the current registry against the last released one:
+
+```go
+violations, err := gatekit.Baseline(current, baseline)
+if err != nil {
+	// one of the registries is invalid
+}
+for _, v := range violations {
+	switch v.Kind {
+	case gatekit.VersionJump:
+		// cmax rose by more than +1 over the baseline
+	case gatekit.RewroteHistory:
+		// a released spec below the ceiling was added or changed: v.Feature, v.ActiveFrom
+	}
+}
+```
+
+It reports two kinds:
+
+| Kind | Reported when |
+|---|---|
+| `VersionJump` | `MaxActivation(current) > MaxActivation(baseline) + 1` |
+| `RewroteHistory` | a current spec at `ActiveFrom < MaxActivation(baseline)` is new, or changed its `Default` or crossed the `ALPHA` boundary |
+
+A spec **at** the baseline ceiling is the activation frontier (in-place promotion is
+normal), so it is never flagged; a pure `BETA`↔`GA` relabel resolves identically and is not
+flagged either. Deletion is out of scope — that is the removal lint above. Unlike the
+removal lint (a warning), a baseline violation should **fail** the build: a jump or a
+rewritten shipped spec breaks or splits a running fleet.
+
+**Keeping a baseline.** `baseline` is the registry as of your **last release**. Keep it as
+a committed snapshot and regenerate it only when you **tag a release** (not in feature PRs —
+if `baseline` tracked HEAD the lint would see nothing). Use `MarshalRegistry` /
+`UnmarshalRegistry` for a canonical, deterministic snapshot:
+
+```go
+// Release step: write the snapshot (deterministic — commit it alongside the tag).
+data, _ := gatekit.MarshalRegistry(Registry)
+_ = os.WriteFile("testdata/baseline_registry.json", data, 0o644)
+```
+
+```go
+// CI test: every PR is checked against the last released registry.
+func TestBaseline(t *testing.T) {
+	data, err := os.ReadFile("testdata/baseline_registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := gatekit.UnmarshalRegistry(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	violations, err := gatekit.Baseline(Registry, baseline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range violations {
+		if v.Kind == gatekit.VersionJump {
+			t.Errorf("baseline: %s", v.Kind) // carries no feature/activeFrom
+		} else {
+			t.Errorf("baseline: %s %s (activeFrom %d)", v.Feature, v.Kind, v.ActiveFrom)
+		}
+	}
+}
+```
+
+`MarshalRegistry` sorts feature keys and specs, so the snapshot diffs cleanly and only
+changes when the registry really does.
+
 ## Migration / activation
 
 The `migration` package ties one-time, idempotent migrations to activation

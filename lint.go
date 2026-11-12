@@ -15,12 +15,14 @@ const (
 	DeprecatedDue LintKind = "deprecated"
 )
 
-// Violation is one lifecycle lint finding.
+// Violation is one lint finding, shared by the lifecycle lint ([Lint]) and the baseline
+// lint ([Baseline]).
 type Violation struct {
 	Feature Feature
 	Kind    LintKind
-	// ActiveFrom is the stale spec's activation version. It is meaningful only
-	// for StaleSpec and is zero for the other kinds, so do not print it for them.
+	// ActiveFrom is the activation version the finding points at. It is meaningful for
+	// StaleSpec (the stale spec) and RewroteHistory (the rewritten spec), and is zero for
+	// the other kinds (PastRemoveBy, DeprecatedDue, VersionJump), so do not print it for them.
 	ActiveFrom Activation
 }
 
