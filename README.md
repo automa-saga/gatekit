@@ -330,30 +330,25 @@ Callers with their own runner can call `plan.CheckWriteFloor(runNow)` directly.
 gatekit's behavior is defined by a language-neutral specification in
 [automa-saga/gatekit-spec](https://github.com/automa-saga/gatekit-spec), vendored
 here as a git submodule at [`docs/spec`](docs/spec) pinned to a **tagged
-gatekit-spec release** (this version conforms to gatekit-spec `v0.3.0`). This Go
+gatekit-spec release** (this version conforms to gatekit-spec `v0.4.0`). This Go
 package is the **first conformant implementation**; where the code and the spec
 disagree, the spec wins.
 
-### Version compatibility
+### Compatibility
 
-| gatekit | gatekit-spec | Works with gatekit-automa |
-| --- | --- | --- |
-| v0.1.0 | v0.1.0 | — |
-| v0.2.0 | v0.1.0 | v0.1.0 |
-| v0.3.0 | v0.1.0 | — |
-| v0.4.0 | v0.2.0 | v0.2.0 |
-| v0.5.0 | untagged commit `c4c7235` (see note) | PR #4 (not released yet) |
-| unreleased (this version) | v0.3.0 | needs a follow-up (see note) |
+Compatibility is recorded in code, not a hand-kept table that drifts:
 
-Notes:
+- **gatekit ↔ gatekit-spec.** This repo vendors the gatekit-spec tag it conforms to at
+  [`docs/spec`](docs/spec); `git ls-tree <gatekit-tag> docs/spec` is the exact spec commit.
+  Consumers never import gatekit-spec — it is a build-time submodule for the conformance
+  tests only, so it does not affect your dependency graph.
+- **gatekit ↔ gatekit-automa.** The durable runner
+  [gatekit-automa](https://github.com/automa-saga/gatekit-automa) declares the gatekit
+  version it needs in its own `go.mod`, so `go get` resolves a working pair and a mismatch
+  is a compile error — there is no version table to consult. A new gatekit-automa release
+  follows each gatekit release that changes the `migration.Runner` interface.
 
-- v0.5.0 pinned a spec commit between v0.2.0 and v0.3.0. It has the removal lint
-  (spec §8, also in v0.3.0) but not rollback or the write floor.
-- gatekit-automa does not call `plan.CheckWriteFloor` yet, so it does not fully
-  honor the write floor until it is updated.
-
-The `docs/spec` submodule is always pinned to a tagged spec release; update this
-table in the same PR that changes the pin.
+The `docs/spec` submodule is pinned to a tagged spec release; keep that pin on a tag.
 
 The conformance runner (`conformance_test.go`) executes the spec's shared fixtures
 against this implementation. After cloning, fetch the submodule:
