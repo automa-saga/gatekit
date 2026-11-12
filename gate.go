@@ -133,12 +133,13 @@ func (g *FeatureGate) specAt(f Feature, v Activation) (FeatureSpec, bool) {
 	return out, found
 }
 
-// MaxActivation returns the highest activation version referenced by any spec in the
-// registry, or 0 if the registry is empty. Consumers derive their max supported
-// activation from this so it is never hand-maintained.
-func (g *FeatureGate) MaxActivation() Activation {
+// MaxActivation returns the highest activation version referenced by any spec in reg,
+// or 0 when reg is empty. It is the registry-level counterpart to
+// FeatureGate.MaxActivation, for callers (such as Baseline) that work from a raw
+// registry without building a gate.
+func MaxActivation(reg Registry) Activation {
 	var max Activation
-	for _, def := range g.specs {
+	for _, def := range reg {
 		for _, s := range def.Specs {
 			if s.ActiveFrom > max {
 				max = s.ActiveFrom
@@ -146,6 +147,13 @@ func (g *FeatureGate) MaxActivation() Activation {
 		}
 	}
 	return max
+}
+
+// MaxActivation returns the highest activation version referenced by any spec in the
+// registry, or 0 if the registry is empty. Consumers derive their max supported
+// activation from this so it is never hand-maintained.
+func (g *FeatureGate) MaxActivation() Activation {
+	return MaxActivation(g.specs)
 }
 
 // Description returns the human-readable description registered for f, or the empty
