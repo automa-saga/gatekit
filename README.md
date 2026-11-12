@@ -205,14 +205,80 @@ _ = runner.RunNow(ctx, plan)          // at install
 _ = runner.Finalize(ctx, plan, store) // during a controlled window
 ```
 
+### Rollback and the write floor
+
+Two optional interfaces describe a migration's limits. Both default to the safe
+answer, so existing migrations keep working.
+
+- `Reversible() bool` — can this migration be undone with `Rollback`? Defaults to
+  `false`. It is never guessed from whether `Rollback` exists.
+- `ReadableFrom() int` — the oldest version that can still read the data this
+  migration writes. Defaults to `0`.
+
+**Write floor.** `Planner.WithMin(min)` sets the lowest version you still allow
+rolling back to (the min-compat version). A step is `Blocked` when its
+`ReadableFrom` is above `min`, because running it would leave data that version
+`min` cannot read. `RunNow` and `Finalize` check this first and run nothing if
+any step is blocked. If a migration in range declares a `ReadableFrom` above `0`
+but you never call `WithMin`, the floor would be silently ignored, so `Plan`
+refuses with an `*UnenforcedFloorError` — set the min, or drop `ReadableFrom` if
+the data really is readable by every version. Migrations that declare no floor
+need no `WithMin`.
+
+This is why a format change is split into expand and contract: a change that old
+versions cannot read cannot finalize in the release that introduces it. You ship
+the readable form first, raise the floor later, and only then finalize.
+
+**Lowering.** `Planner.PlanLower(from, to, min)` builds the reverse plan. It
+rejects a target below `min`, ignores `Applies`, and orders steps from newest to
+oldest. Any irreversible step is refused, and all of them are named.
+`StdRunner.Lower` rolls each step back in order, then sets the active version
+last. If a step fails, it stops and leaves the active version unchanged.
+
+```go
+planner := migration.NewPlanner(migs...).WithMin(4)
+
+lp, err := planner.PlanLower(6, 4, 4) // from 6 down to 4
+if err != nil {
+    var irr *migration.IrreversibleStepError
+    if errors.As(err, &irr) { /* these steps cannot be undone */ }
+    return err
+}
+_ = runner.Lower(ctx, lp, store) // data first, active version last
+```
+
+Typed errors: `BelowMinError`, `IrreversibleStepError`, `WriteFloorError`.
+Callers with their own runner can call `plan.CheckWriteFloor(runNow)` directly.
+
 ## Specification & conformance
 
 gatekit's behavior is defined by a language-neutral specification in
 [automa-saga/gatekit-spec](https://github.com/automa-saga/gatekit-spec), vendored
 here as a git submodule at [`docs/spec`](docs/spec) pinned to a **tagged
-gatekit-spec release** (this version conforms to gatekit-spec `v0.2.0`). This Go
+gatekit-spec release** (this version conforms to gatekit-spec `v0.3.0`). This Go
 package is the **first conformant implementation**; where the code and the spec
 disagree, the spec wins.
+
+### Version compatibility
+
+| gatekit | gatekit-spec | Works with gatekit-automa |
+| --- | --- | --- |
+| v0.1.0 | v0.1.0 | — |
+| v0.2.0 | v0.1.0 | v0.1.0 |
+| v0.3.0 | v0.1.0 | — |
+| v0.4.0 | v0.2.0 | v0.2.0 |
+| v0.5.0 | untagged commit `c4c7235` (see note) | PR #4 (not released yet) |
+| unreleased (this version) | v0.3.0 | needs a follow-up (see note) |
+
+Notes:
+
+- v0.5.0 pinned a spec commit between v0.2.0 and v0.3.0. It has the removal lint
+  (spec §8, also in v0.3.0) but not rollback or the write floor.
+- gatekit-automa does not call `plan.CheckWriteFloor` yet, so it does not fully
+  honor the write floor until it is updated.
+
+The `docs/spec` submodule is always pinned to a tagged spec release; update this
+table in the same PR that changes the pin.
 
 The conformance runner (`conformance_test.go`) executes the spec's shared fixtures
 against this implementation. After cloning, fetch the submodule:
